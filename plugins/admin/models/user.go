@@ -293,6 +293,7 @@ func (t UserModel) WithPermissions() UserModel {
 	userPermissions, _ := t.Table("goadmin_user_permissions").
 		LeftJoin("goadmin_permissions", "goadmin_permissions.id", "=", "goadmin_user_permissions.permission_id").
 		Where("user_id", "=", t.Id).
+		Where("enabled", "=", "true").
 		Select("goadmin_permissions.http_method", "goadmin_permissions.http_path",
 			"goadmin_permissions.id", "goadmin_permissions.name", "goadmin_permissions.slug",
 			"goadmin_permissions.created_at", "goadmin_permissions.updated_at").
@@ -457,6 +458,7 @@ func (t UserModel) CheckPermissionById(permissionId string) bool {
 	checkPermission, _ := t.Table("goadmin_user_permissions").
 		Where("permission_id", "=", permissionId).
 		Where("user_id", "=", t.Id).
+		Where("enabled", "=", "true").
 		First()
 	return checkPermission != nil
 }
