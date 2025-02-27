@@ -29,6 +29,7 @@ import (
 	"github.com/GoAdminGroup/go-admin/template/icon"
 	"github.com/GoAdminGroup/go-admin/template/types"
 	"github.com/GoAdminGroup/go-admin/template/types/action"
+	form2 "github.com/GoAdminGroup/go-admin/template/types/form"
 	"github.com/GoAdminGroup/html"
 )
 
@@ -67,7 +68,7 @@ func (h *Handler) showTableData(ctx *context.Context, prefix string, params para
 		panel = h.table(prefix, ctx)
 	}
 
-	panelInfo, err := panel.GetData(params.WithIsAll(false))
+	panelInfo, err := panel.GetData(ctx, params.WithIsAll(false))
 
 	if err != nil {
 		return panel, panelInfo, nil, err
@@ -102,7 +103,7 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 	panel, panelInfo, urls, err := h.showTableData(ctx, prefix, params, panel, "")
 	if err != nil {
 		return h.Execute(ctx, auth.Auth(ctx),
-			template.WarningPanelWithDescAndTitle(err.Error(), errors.Msg, errors.Msg), "",
+			template.WarningPanelWithDescAndTitle(ctx, err.Error(), errors.Msg, errors.Msg), "",
 			template.ExecuteOptions{Animation: params.Animation})
 	}
 
@@ -113,7 +114,7 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 				template.ExecuteOptions{Animation: params.Animation})
 		}
 		return h.Execute(ctx, auth.Auth(ctx),
-			template.WarningPanel(panel.GetInfo().PageError.Error(),
+			template.WarningPanel(ctx, panel.GetInfo().PageError.Error(),
 				template.GetPageTypeFromPageError(panel.GetInfo().PageError)), "",
 			template.ExecuteOptions{Animation: params.Animation})
 	}
@@ -132,7 +133,10 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 		allActionBtns = info.ActionButtons.CheckPermissionWhenURLAndMethodNotEmpty(user)
 	)
 
-	if actionBtns == template.HTML("") && len(allActionBtns) > 0 {
+	hasExtAction := actionBtns == template.HTML("") && len(allActionBtns) > 0
+	hasAction := hasExtAction || (editUrl != "" || newUrl != "" || deleteUrl != "")
+
+	if hasExtAction {
 		if info.ActionButtonFold {
 			ext := template2.HTML("")
 			if deleteUrl != "" {
@@ -158,7 +162,7 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 			}
 
 			var content template2.HTML
-			content, actionJs = allActionBtns.Content()
+			content, actionJs = allActionBtns.Content(ctx)
 
 			actionBtns = html.Div(html.Div(
 				html.A(icon.Icon(icon.EllipsisV),
@@ -166,22 +170,21 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 					html.M{"href": "#"},
 				), html.M{"cursor": "pointer", "width": "100%"}, html.M{"class": "dropdown-toggle", "data-toggle": "dropdown"})+
 				html.Ul(content,
-					html.M{"min-width": "20px !important", "left": "-32px", "overflow": "hidden"},
+					html.M{"min-width": "20px !important", "left": "-112px", "overflow": "hidden"},
 					html.M{"class": "dropdown-menu", "role": "menu", "aria-labelledby": "dLabel"}),
-
 				html.M{"text-align": "center"}, html.M{"class": "dropdown"})
 		} else {
-			actionBtns, actionJs = allActionBtns.Content()
+			actionBtns, actionJs = allActionBtns.Content(ctx)
 		}
 	} else {
 		info.ActionButtonFold = false
 	}
 
-	btns, btnsJs := info.Buttons.CheckPermissionWhenURLAndMethodNotEmpty(user).Content()
+	btns, btnsJs := info.Buttons.CheckPermissionWhenURLAndMethodNotEmpty(user).Content(ctx)
 
 	if info.TabGroups.Valid() {
 
-		dataTable = aDataTable().
+		dataTable = aDataTable(ctx).
 			SetThead(panelInfo.Thead).
 			SetDeleteUrl(deleteUrl).
 			SetNewUrl(newUrl).
@@ -195,10 +198,11 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 		for key, header := range info.TabHeaders {
 			tabsHtml[key] = map[string]template2.HTML{
 				"title": template2.HTML(header),
-				"content": aDataTable().
+				"content": aDataTable(ctx).
 					SetInfoList(infoListArr[key]).
 					SetInfoUrl(infoUrl).
 					SetButtons(btns).
+					SetSticky(hasAction).
 					SetActionJs(btnsJs + actionJs).
 					SetHasFilter(len(panelInfo.FilterFormData) > 0).
 					SetAction(actionBtns).
@@ -218,12 +222,13 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 					GetContent(),
 			}
 		}
-		body = aTab().SetData(tabsHtml).GetContent()
+		body = aTab(ctx).SetData(tabsHtml).GetContent()
 	} else {
-		dataTable = aDataTable().
+		dataTable = aDataTable(ctx).
 			SetInfoList(panelInfo.InfoList).
 			SetInfoUrl(infoUrl).
 			SetButtons(btns).
+			SetSticky(hasAction).
 			SetLayout(info.TableLayout).
 			SetActionJs(btnsJs + actionJs).
 			SetAction(actionBtns).
@@ -250,18 +255,50 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 		paginator = paginator.SetEntriesInfo("")
 	}
 
-	boxModel := aBox().
+	boxModel := aBox(ctx).
 		SetBody(body).
+		SetStyle(template2.HTMLAttr(`overflow-x: auto;overflow-y: hidden;`)).
 		SetNoPadding().
 		SetHeader(dataTable.GetDataTableHeader() + info.HeaderHtml).
 		WithHeadBorder().
 		SetIframeStyle(!isNotIframe).
-		SetFooter(paginator.GetContent() + info.FooterHtml)
+		SetFooter(paginator.GetContent() + info.FooterHtml + `
+		<script>
+		$(document).ready(function() {
+			var tableWrapper = $(".table");
+			var lastTh = tableWrapper.find('tbody th:last-child');
+			var lastTd = tableWrapper.find('tbody td:last-child');
 
-	if len(panelInfo.FilterFormData) > 0 {
-		boxModel = boxModel.SetSecondHeaderClass("filter-area").
-			SetSecondHeader(aForm().
+			var minWidth = parseInt(tableWrapper.css('min-width'));
+
+			var resize = function() {
+				if (tableWrapper.width() <= minWidth) {
+					lastTh.addClass('last_th_td_ele');
+					lastTd.addClass('last_th_td_ele');
+				} else {
+					lastTh.removeClass('last_th_td_ele');
+					lastTd.removeClass('last_th_td_ele');
+				}
+			}
+
+			resize();
+
+			$(window).resize(function() {
+				resize();
+			});
+		});
+</script>
+		`)
+
+	content := template2.HTML("")
+
+	if len(panelInfo.FilterFormData) > 0 && info.FilterFormLayout == form2.LayoutFilter {
+		filterBoxModel := aBox(ctx).SetClass("filter-area").
+			SetAttr(`style="padding-top: 20px;margin-top: -10px;margin-bottom: 12px;padding-left: 20px;display: block;padding-bottom: 5px;"`).
+			SetStyle(`padding: 0px;`).
+			SetBody(aForm(ctx).
 				SetContent(panelInfo.FilterFormData).
+				SetHorizontal(true).
 				SetPrefix(h.config.PrefixFixSlash()).
 				SetInputWidth(info.FilterFormInputWidth).
 				SetHeadWidth(info.FilterFormHeadWidth).
@@ -271,11 +308,27 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 				SetHiddenFields(map[string]string{
 					form.NoAnimationKey: "true",
 				}).
-				SetOperationFooter(filterFormFooter(infoUrl)).
 				GetContent())
+		content = filterBoxModel.GetContent() + boxModel.GetContent()
+	} else {
+		if len(panelInfo.FilterFormData) > 0 {
+			boxModel = boxModel.SetSecondHeaderClass("filter-area").
+				SetSecondHeader(aForm(ctx).
+					SetContent(panelInfo.FilterFormData).
+					SetPrefix(h.config.PrefixFixSlash()).
+					SetInputWidth(info.FilterFormInputWidth).
+					SetHeadWidth(info.FilterFormHeadWidth).
+					SetMethod("get").
+					SetLayout(info.FilterFormLayout).
+					SetUrl(infoUrl). //  + params.GetFixedParamStrWithoutColumnsAndPage()
+					SetHiddenFields(map[string]string{
+						form.NoAnimationKey: "true",
+					}).
+					SetOperationFooter(filterFormFooter(ctx, infoUrl)).
+					GetContent())
+		}
+		content = boxModel.GetContent()
 	}
-
-	content := boxModel.GetContent()
 
 	if info.Wrapper != nil {
 		content = info.Wrapper(content)
@@ -300,12 +353,18 @@ func (h *Handler) showTable(ctx *context.Context, prefix string, params paramete
 // Assets return front-end assets according the request path.
 func (h *Handler) Assets(ctx *context.Context) {
 	filepath := h.config.URLRemovePrefix(ctx.Path())
-	data, err := aTemplate().GetAsset(filepath)
+
+	theme := h.assetsTheme[filepath]
+	if theme == "" {
+		theme = h.config.Theme
+	}
+
+	data, err := aTemplateByTheme(ctx, theme).GetAsset(filepath)
 
 	if err != nil {
 		data, err = template.GetAsset(filepath)
 		if err != nil {
-			logger.Error("asset err", err)
+			logger.ErrorCtx(ctx, "asset err %+v", err)
 			ctx.Write(http.StatusNotFound, map[string]string{}, "")
 			return
 		}
@@ -368,11 +427,11 @@ func (h *Handler) Export(ctx *context.Context) {
 		if len(param.Id) == 0 {
 			params = parameter.GetParam(ctx.Request.URL, tableInfo.DefaultPageSize, tableInfo.SortField,
 				tableInfo.GetSort())
-			infoData, err = panel.GetData(params.WithIsAll(param.IsAll))
+			infoData, err = panel.GetData(ctx, params.WithIsAll(param.IsAll))
 			fileName = fmt.Sprintf("%s-%d-page-%s-pageSize-%s.xlsx", tableInfo.Title, time.Now().Unix(),
 				params.Page, params.PageSize)
 		} else {
-			infoData, err = panel.GetDataWithIds(parameter.GetParam(ctx.Request.URL,
+			infoData, err = panel.GetDataWithIds(ctx, parameter.GetParam(ctx.Request.URL,
 				tableInfo.DefaultPageSize, tableInfo.SortField, tableInfo.GetSort()).WithPKs(param.Id...))
 			fileName = fmt.Sprintf("%s-%d-id-%s.xlsx", tableInfo.Title, time.Now().Unix(), strings.Join(param.Id, "_"))
 		}

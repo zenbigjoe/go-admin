@@ -32,6 +32,8 @@ import (
 	selection "github.com/GoAdminGroup/go-admin/template/types/form/select"
 	"github.com/GoAdminGroup/html"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/text/cases"
+	textLang "golang.org/x/text/language"
 )
 
 type SystemTable struct {
@@ -43,14 +45,18 @@ func NewSystemTable(conn db.Connection, c *config.Config) *SystemTable {
 	return &SystemTable{conn: conn, c: c}
 }
 
-func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table) {
-	managerTable = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
 
-	info := managerTable.GetInfo().AddXssJsFilter().HideFilterArea()
+var filterType = types.FilterType{NoIcon: true, HeadWidth: 4, InputWidth: 8}
+
+func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table) {
+	managerTable = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
+
+	info := managerTable.GetInfo().AddXssJsFilter().SetFilterFormLayout(form.LayoutFilter)
 
 	info.AddField("ID", "id", db.Int).FieldSortable()
-	info.AddField(lg("Name"), "username", db.Varchar).FieldFilterable()
-	info.AddField(lg("Nickname"), "name", db.Varchar).FieldFilterable()
+	filterType := types.FilterType{NoIcon: true, HeadWidth: 4, InputWidth: 8}
+	info.AddField(lg("Name"), "username", db.Varchar).FieldFilterable(filterType)
+	info.AddField(lg("Nickname"), "name", db.Varchar).FieldFilterable(filterType)
 	info.AddField(lg("role"), "name", db.Varchar).
 		FieldJoin(types.Join{
 			Table:     "goadmin_role_users",
@@ -65,7 +71,7 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 		}).
 		FieldDisplay(func(model types.FieldModel) interface{} {
 			labels := template.HTML("")
-			labelTpl := label().SetType("success")
+			labelTpl := label(ctx).SetType("success")
 
 			labelValues := strings.Split(model.Value, types.JoinFieldValueDelimiter)
 			for key, label := range labelValues {
@@ -81,13 +87,13 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 			}
 
 			return labels
-		}).FieldFilterable()
+		}).FieldFilterable(filterType)
 	info.AddField(lg("createdAt"), "created_at", db.Timestamp)
 	info.AddField(lg("updatedAt"), "updated_at", db.Timestamp)
 
 	info.SetTable("goadmin_users").
 		SetTitle(lg("Managers")).
-		SetDescription(lg("Managers")).
+		SetDescription(lg("Managers manage")).
 		SetDeleteFn(func(idArr []string) error {
 
 			var ids = interfaces(idArr)
@@ -178,7 +184,7 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 			return ""
 		})
 
-	formList.SetTable("goadmin_users").SetTitle(lg("Managers")).SetDescription(lg("Managers"))
+	formList.SetTable("goadmin_users").SetTitle(lg("Managers")).SetDescription(lg("Managers manage"))
 	formList.SetUpdateFn(func(values form2.Values) error {
 
 		if values.IsEmpty("name", "username") {
@@ -295,7 +301,7 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 			} else {
 				model.Value = config.GetStore().URL(model.Value)
 			}
-			return template.Default().Image().
+			return template.Default(ctx).Image().
 				SetSrc(template.HTML(model.Value)).
 				SetHeight("120").SetWidth("120").WithModal().GetContent()
 		})
@@ -309,7 +315,7 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 				All()
 
 			labels := template.HTML("")
-			labelTpl := label().SetType("success")
+			labelTpl := label(ctx).SetType("success")
 
 			for key, label := range labelModels {
 				if key == len(labelModels)-1 {
@@ -334,7 +340,7 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 				All()
 
 			permissions := template.HTML("")
-			permissionTpl := label().SetType("success")
+			permissionTpl := label(ctx).SetType("success")
 
 			for key, label := range permissionModel {
 				if key == len(permissionModel)-1 {
@@ -353,13 +359,13 @@ func (s *SystemTable) GetManagerTable(ctx *context.Context) (managerTable Table)
 }
 
 func (s *SystemTable) GetNormalManagerTable(ctx *context.Context) (managerTable Table) {
-	managerTable = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
+	managerTable = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
 
-	info := managerTable.GetInfo().AddXssJsFilter().HideFilterArea()
+	info := managerTable.GetInfo().AddXssJsFilter().SetFilterFormLayout(form.LayoutFilter)
 
 	info.AddField("ID", "id", db.Int).FieldSortable()
-	info.AddField(lg("Name"), "username", db.Varchar).FieldFilterable()
-	info.AddField(lg("Nickname"), "name", db.Varchar).FieldFilterable()
+	info.AddField(lg("Name"), "username", db.Varchar).FieldFilterable(filterType)
+	info.AddField(lg("Nickname"), "name", db.Varchar).FieldFilterable(filterType)
 	info.AddField(lg("role"), "name", db.Varchar).
 		FieldJoin(types.Join{
 			Table:     "goadmin_role_users",
@@ -374,7 +380,7 @@ func (s *SystemTable) GetNormalManagerTable(ctx *context.Context) (managerTable 
 		}).
 		FieldDisplay(func(model types.FieldModel) interface{} {
 			labels := template.HTML("")
-			labelTpl := label().SetType("success")
+			labelTpl := label(ctx).SetType("success")
 
 			labelValues := strings.Split(model.Value, types.JoinFieldValueDelimiter)
 			for key, label := range labelValues {
@@ -396,7 +402,7 @@ func (s *SystemTable) GetNormalManagerTable(ctx *context.Context) (managerTable 
 
 	info.SetTable("goadmin_users").
 		SetTitle(lg("Managers")).
-		SetDescription(lg("Managers")).
+		SetDescription(lg("Managers manage")).
 		SetDeleteFn(func(idArr []string) error {
 
 			var ids = interfaces(idArr)
@@ -521,13 +527,13 @@ func (s *SystemTable) GetNormalManagerTable(ctx *context.Context) (managerTable 
 }
 
 func (s *SystemTable) GetPermissionTable(ctx *context.Context) (permissionTable Table) {
-	permissionTable = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
+	permissionTable = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
 
-	info := permissionTable.GetInfo().AddXssJsFilter().HideFilterArea()
+	info := permissionTable.GetInfo().AddXssJsFilter().SetFilterFormLayout(form.LayoutFilter)
 
 	info.AddField("ID", "id", db.Int).FieldSortable()
-	info.AddField(lg("permission"), "name", db.Varchar).FieldFilterable()
-	info.AddField(lg("slug"), "slug", db.Varchar).FieldFilterable()
+	info.AddField(lg("permission"), "name", db.Varchar).FieldFilterable(filterType)
+	info.AddField(lg("slug"), "slug", db.Varchar).FieldFilterable(filterType)
 	info.AddField(lg("method"), "http_method", db.Varchar).FieldDisplay(func(value types.FieldModel) interface{} {
 		if value.Value == "" {
 			return "All methods"
@@ -540,9 +546,9 @@ func (s *SystemTable) GetPermissionTable(ctx *context.Context) (permissionTable 
 			res := ""
 			for i := 0; i < len(pathArr); i++ {
 				if i == len(pathArr)-1 {
-					res += string(label().SetContent(template.HTML(pathArr[i])).GetContent())
+					res += string(label(ctx).SetContent(template.HTML(pathArr[i])).GetContent())
 				} else {
-					res += string(label().SetContent(template.HTML(pathArr[i])).GetContent()) + "<br><br>"
+					res += string(label(ctx).SetContent(template.HTML(pathArr[i])).GetContent()) + "<br><br>"
 				}
 			}
 			return res
@@ -551,7 +557,7 @@ func (s *SystemTable) GetPermissionTable(ctx *context.Context) (permissionTable 
 	info.AddField(lg("updatedAt"), "updated_at", db.Timestamp)
 
 	info.SetTable("goadmin_permissions").
-		SetTitle(lg("Permission Manage")).
+		SetTitle(lg("Permission")).
 		SetDescription(lg("Permission Manage")).
 		SetDeleteFn(func(idArr []string) error {
 
@@ -659,18 +665,18 @@ func (s *SystemTable) GetPermissionTable(ctx *context.Context) (permissionTable 
 }
 
 func (s *SystemTable) GetRolesTable(ctx *context.Context) (roleTable Table) {
-	roleTable = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
+	roleTable = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
 
-	info := roleTable.GetInfo().AddXssJsFilter().HideFilterArea()
+	info := roleTable.GetInfo().AddXssJsFilter().SetFilterFormLayout(form.LayoutFilter)
 
 	info.AddField("ID", "id", db.Int).FieldSortable()
-	info.AddField(lg("role"), "name", db.Varchar).FieldFilterable()
-	info.AddField(lg("slug"), "slug", db.Varchar).FieldFilterable()
+	info.AddField(lg("role"), "name", db.Varchar).FieldFilterable(filterType)
+	info.AddField(lg("slug"), "slug", db.Varchar).FieldFilterable(filterType)
 	info.AddField(lg("createdAt"), "created_at", db.Timestamp)
 	info.AddField(lg("updatedAt"), "updated_at", db.Timestamp)
 
 	info.SetTable("goadmin_roles").
-		SetTitle(lg("Roles Manage")).
+		SetTitle(lg("Roles")).
 		SetDescription(lg("Roles Manage")).
 		SetDeleteFn(func(idArr []string) error {
 
@@ -748,7 +754,7 @@ func (s *SystemTable) GetRolesTable(ctx *context.Context) (roleTable Table) {
 	formList.AddField(lg("createdAt"), "created_at", db.Timestamp, form.Default).FieldDisableWhenCreate()
 
 	formList.SetTable("goadmin_roles").
-		SetTitle(lg("Roles Manage")).
+		SetTitle(lg("Roles")).
 		SetDescription(lg("Roles Manage"))
 
 	formList.SetUpdateFn(func(values form2.Values) error {
@@ -816,7 +822,7 @@ func (s *SystemTable) GetRolesTable(ctx *context.Context) (roleTable Table) {
 }
 
 func (s *SystemTable) GetOpTable(ctx *context.Context) (opTable Table) {
-	opTable = NewDefaultTable(Config{
+	opTable = NewDefaultTable(ctx, Config{
 		Driver:     config.GetDatabases().GetDefault().Driver,
 		CanAdd:     false,
 		Editable:   false,
@@ -830,7 +836,7 @@ func (s *SystemTable) GetOpTable(ctx *context.Context) (opTable Table) {
 	})
 
 	info := opTable.GetInfo().AddXssJsFilter().
-		HideFilterArea().HideDetailButton().HideEditButton().HideNewButton()
+		HideDetailButton().HideEditButton().HideNewButton().SetFilterFormLayout(form.LayoutFilter)
 
 	if !config.GetAllowDelOperationLog() {
 		info = info.HideDeleteButton()
@@ -843,17 +849,17 @@ func (s *SystemTable) GetOpTable(ctx *context.Context) (opTable Table) {
 		JoinField: "id",
 		Field:     "user_id",
 	}).FieldDisplay(func(value types.FieldModel) interface{} {
-		return template.Default().
+		return template.Default(ctx).
 			Link().
 			SetURL(config.Url("/info/manager/detail?__goadmin_detail_pk=") + strconv.Itoa(int(value.Row["user_id"].(int64)))).
 			SetContent(template.HTML(value.Value)).
 			OpenInNewTab().
 			SetTabTitle("Manager Detail").
 			GetContent()
-	}).FieldFilterable()
-	info.AddField(lg("path"), "path", db.Varchar).FieldFilterable()
-	info.AddField(lg("method"), "method", db.Varchar).FieldFilterable()
-	info.AddField(lg("ip"), "ip", db.Varchar).FieldFilterable()
+	})
+	info.AddField(lg("path"), "path", db.Varchar).FieldFilterable(filterType)
+	info.AddField(lg("method"), "method", db.Varchar)
+	info.AddField(lg("ip"), "ip", db.Varchar).FieldFilterable(filterType)
 	info.AddField(lg("content"), "input", db.Text).FieldWidth(230)
 	info.AddField(lg("createdAt"), "created_at", db.Timestamp)
 
@@ -863,8 +869,8 @@ func (s *SystemTable) GetOpTable(ctx *context.Context) (opTable Table) {
 		options[k].Value = fmt.Sprintf("%v", user["id"])
 		options[k].Text = fmt.Sprintf("%v", user["name"])
 	}
-	info.AddSelectBox(language.Get("user"), options, action.FieldFilter("user_id"))
-	info.AddSelectBox(language.Get("method"), types.FieldOptions{
+	info.AddSelectBox(ctx, language.Get("user"), options, action.FieldFilter("user_id"))
+	info.AddSelectBox(ctx, language.Get("method"), types.FieldOptions{
 		{Value: "GET", Text: "GET"},
 		{Value: "POST", Text: "POST"},
 		{Value: "OPTIONS", Text: "OPTIONS"},
@@ -896,7 +902,7 @@ func (s *SystemTable) GetOpTable(ctx *context.Context) (opTable Table) {
 }
 
 func (s *SystemTable) GetMenuTable(ctx *context.Context) (menuTable Table) {
-	menuTable = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
+	menuTable = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver))
 
 	name := ctx.Query("__plugin_name")
 
@@ -1040,7 +1046,7 @@ func (s *SystemTable) GetMenuTable(ctx *context.Context) (menuTable Table) {
 }
 
 func (s *SystemTable) GetSiteTable(ctx *context.Context) (siteTable Table) {
-	siteTable = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver).
+	siteTable = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver).
 		SetOnlyUpdateForm().
 		SetGetDataFun(func(params parameter.Parameters) (i []map[string]interface{}, i2 int) {
 			return []map[string]interface{}{models.Site().SetConn(s.conn).AllToMapInterface()}, 1
@@ -1360,7 +1366,7 @@ func (s *SystemTable) GetSiteTable(ctx *context.Context) (siteTable Table) {
 }
 
 func (s *SystemTable) GetGenerateForm(ctx *context.Context) (generateTool Table) {
-	generateTool = NewDefaultTable(DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver).
+	generateTool = NewDefaultTable(ctx, DefaultConfigWithDriver(config.GetDatabases().GetDefault().Driver).
 		SetOnlyNewForm())
 
 	formList := generateTool.GetForm().AddXssJsFilter().
@@ -1436,7 +1442,7 @@ func (s *SystemTable) GetGenerateForm(ctx *context.Context) (generateTool Table)
 				for i, model := range columnsModel {
 					typeName := getType(model[typeField].(string))
 
-					headName[i] = strings.Title(model[fieldField].(string))
+					headName[i] = cases.Title(textLang.Und).String(model[fieldField].(string))
 					fieldName[i] = model[fieldField].(string)
 					dbTypeList[i] = typeName
 					formTypeList[i] = form.GetFormTypeFromFieldType(db.DT(strings.ToUpper(typeName)),
@@ -1684,8 +1690,8 @@ func (s *SystemTable) GetGenerateForm(ctx *context.Context) (generateTool Table)
 			lgWithScore("form info", "tool"), lgWithScore("detail info", "tool"))
 
 	formList.SetTable("tool").
-		SetTitle(lgWithScore("tool", "tool")).
-		SetDescription(lgWithScore("tool", "tool")).
+		SetTitle(lgWithScore("code generate tool", "tool")).
+		SetDescription(lgWithScore("code generate tool", "tool")).
 		SetHeader(template.HTML(`<h3 class="box-title">` +
 			lgWithScore("generate table model", "tool") + `</h3>`))
 
@@ -1847,8 +1853,8 @@ func encodePassword(pwd []byte) string {
 	return string(hash)
 }
 
-func label() types.LabelAttribute {
-	return template.Get(config.GetTheme()).Label().SetType("success")
+func label(ctx *context.Context) types.LabelAttribute {
+	return template.Get(ctx, config.GetTheme()).Label().SetType("success")
 }
 
 func lg(v string) string {
@@ -1958,31 +1964,31 @@ func databaseTypeOptions() types.FieldOptions {
 	z := 0
 	for _, t := range db.IntTypeList {
 		text := string(t)
-		v := strings.Title(strings.ToLower(text))
+		v := cases.Title(textLang.Und).String(strings.ToLower(text))
 		opts[z] = types.FieldOption{Text: text, Value: v}
 		z++
 	}
 	for _, t := range db.StringTypeList {
 		text := string(t)
-		v := strings.Title(strings.ToLower(text))
+		v := cases.Title(textLang.Und).String(strings.ToLower(text))
 		opts[z] = types.FieldOption{Text: text, Value: v}
 		z++
 	}
 	for _, t := range db.FloatTypeList {
 		text := string(t)
-		v := strings.Title(strings.ToLower(text))
+		v := cases.Title(textLang.Und).String(strings.ToLower(text))
 		opts[z] = types.FieldOption{Text: text, Value: v}
 		z++
 	}
 	for _, t := range db.UintTypeList {
 		text := string(t)
-		v := strings.Title(strings.ToLower(text))
+		v := cases.Title(textLang.Und).String(strings.ToLower(text))
 		opts[z] = types.FieldOption{Text: text, Value: v}
 		z++
 	}
 	for _, t := range db.BoolTypeList {
 		text := string(t)
-		v := strings.Title(strings.ToLower(text))
+		v := cases.Title(textLang.Und).String(strings.ToLower(text))
 		opts[z] = types.FieldOption{Text: text, Value: v}
 		z++
 	}
@@ -1993,5 +1999,5 @@ func getType(typeName string) string {
 	r, _ := regexp.Compile(`\(.*?\)`)
 	typeName = r.ReplaceAllString(typeName, "")
 	r2, _ := regexp.Compile(`unsigned(.*)`)
-	return strings.TrimSpace(strings.Title(strings.ToLower(r2.ReplaceAllString(typeName, ""))))
+	return strings.TrimSpace(cases.Title(textLang.Und).String(strings.ToLower(r2.ReplaceAllString(typeName, ""))))
 }

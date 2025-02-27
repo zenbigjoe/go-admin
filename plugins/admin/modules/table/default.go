@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GoAdminGroup/go-admin/context"
 	"github.com/GoAdminGroup/go-admin/modules/config"
 
 	"github.com/GoAdminGroup/go-admin/modules/db"
@@ -40,7 +41,7 @@ type DefaultTable struct {
 
 type GetDataFun func(params parameter.Parameters) ([]map[string]interface{}, int)
 
-func NewDefaultTable(cfgs ...Config) Table {
+func NewDefaultTable(ctx *context.Context, cfgs ...Config) Table {
 
 	var cfg Config
 
@@ -52,10 +53,10 @@ func NewDefaultTable(cfgs ...Config) Table {
 
 	return &DefaultTable{
 		BaseTable: &BaseTable{
-			Info:           types.NewInfoPanel(cfg.PrimaryKey.Name),
+			Info:           types.NewInfoPanel(ctx, cfg.PrimaryKey.Name),
 			Form:           types.NewFormPanel(),
 			NewForm:        types.NewFormPanel(),
-			Detail:         types.NewInfoPanel(cfg.PrimaryKey.Name),
+			Detail:         types.NewInfoPanel(ctx, cfg.PrimaryKey.Name),
 			CanAdd:         cfg.CanAdd,
 			Editable:       cfg.Editable,
 			Deletable:      cfg.Deletable,
@@ -84,11 +85,11 @@ func (tb *DefaultTable) Copy() Table {
 			NewForm: types.NewFormPanel().SetTable(tb.Form.Table).
 				SetDescription(tb.Form.Description).
 				SetTitle(tb.Form.Title),
-			Info: types.NewInfoPanel(tb.PrimaryKey.Name).SetTable(tb.Info.Table).
+			Info: types.NewInfoPanel(tb.Info.Ctx, tb.PrimaryKey.Name).SetTable(tb.Info.Table).
 				SetDescription(tb.Info.Description).
 				SetTitle(tb.Info.Title).
 				SetGetDataFn(tb.Info.GetDataFn),
-			Detail: types.NewInfoPanel(tb.PrimaryKey.Name).SetTable(tb.Detail.Table).
+			Detail: types.NewInfoPanel(tb.Info.Ctx, tb.PrimaryKey.Name).SetTable(tb.Detail.Table).
 				SetDescription(tb.Detail.Description).
 				SetTitle(tb.Detail.Title).
 				SetGetDataFn(tb.Detail.GetDataFn),
@@ -107,7 +108,7 @@ func (tb *DefaultTable) Copy() Table {
 }
 
 // GetData query the data set.
-func (tb *DefaultTable) GetData(params parameter.Parameters) (PanelInfo, error) {
+func (tb *DefaultTable) GetData(ctx *context.Context, params parameter.Parameters) (PanelInfo, error) {
 
 	var (
 		data      []map[string]interface{}
@@ -132,7 +133,7 @@ func (tb *DefaultTable) GetData(params parameter.Parameters) (PanelInfo, error) 
 		}
 
 		if stopQuery {
-			return tb.GetDataWithIds(params.WithPKs(ids...))
+			return tb.GetDataWithIds(ctx, params.WithPKs(ids...))
 		}
 	}
 
@@ -145,7 +146,7 @@ func (tb *DefaultTable) GetData(params parameter.Parameters) (PanelInfo, error) 
 	} else if params.IsAll() {
 		return tb.getAllDataFromDatabase(params)
 	} else {
-		return tb.getDataFromDatabase(params)
+		return tb.getDataFromDatabase(ctx, params)
 	}
 
 	infoList := make(types.InfoList, 0)
@@ -168,7 +169,7 @@ func (tb *DefaultTable) GetData(params parameter.Parameters) (PanelInfo, error) 
 	return PanelInfo{
 		Thead:    thead,
 		InfoList: infoList,
-		Paginator: paginator.Get(paginator.Config{
+		Paginator: paginator.Get(ctx, paginator.Config{
 			Size:         size,
 			Param:        params,
 			PageSizeList: tb.Info.GetPageSizeList(),
@@ -220,7 +221,7 @@ func (tb *DefaultTable) getDataFromURL(params parameter.Parameters) ([]map[strin
 }
 
 // GetDataWithIds query the data set.
-func (tb *DefaultTable) GetDataWithIds(params parameter.Parameters) (PanelInfo, error) {
+func (tb *DefaultTable) GetDataWithIds(ctx *context.Context, params parameter.Parameters) (PanelInfo, error) {
 
 	var (
 		data      []map[string]interface{}
@@ -235,7 +236,7 @@ func (tb *DefaultTable) GetDataWithIds(params parameter.Parameters) (PanelInfo, 
 	} else if tb.Info.GetDataFn != nil {
 		data, size = tb.Info.GetDataFn(params)
 	} else {
-		return tb.getDataFromDatabase(params)
+		return tb.getDataFromDatabase(ctx, params)
 	}
 
 	infoList := make([]map[string]types.InfoItem, 0)
@@ -251,7 +252,7 @@ func (tb *DefaultTable) GetDataWithIds(params parameter.Parameters) (PanelInfo, 
 	return PanelInfo{
 		Thead:    thead,
 		InfoList: infoList,
-		Paginator: paginator.Get(paginator.Config{
+		Paginator: paginator.Get(ctx, paginator.Config{
 			Size:         size,
 			Param:        params,
 			PageSizeList: tb.Info.GetPageSizeList(),
@@ -440,7 +441,7 @@ func (tb *DefaultTable) getAllDataFromDatabase(params parameter.Parameters) (Pan
 }
 
 // TODO: refactor
-func (tb *DefaultTable) getDataFromDatabase(params parameter.Parameters) (PanelInfo, error) {
+func (tb *DefaultTable) getDataFromDatabase(ctx *context.Context, params parameter.Parameters) (PanelInfo, error) {
 
 	var (
 		connection     = tb.db()
@@ -471,7 +472,7 @@ func (tb *DefaultTable) getDataFromDatabase(params parameter.Parameters) (PanelI
 			queryStatement = "SELECT * FROM (SELECT ROW_NUMBER() OVER (ORDER BY %s." + placeholder + " %s) as ROWNUMBER_, %s from " +
 				placeholder + "%s %s %s ) as TMP_ WHERE TMP_.ROWNUMBER_ > ? AND TMP_.ROWNUMBER_ <= ?"
 			// %s means: table, join table, wheres
-			countStatement = "select count(*) as [size] from (select count(*) as [size] from " + placeholder + " %s %s %s) src"
+			countStatement = "select count(*) as [size] from (select 1 as [size] from " + placeholder + " %s %s %s) src"
 		} else {
 			// %s means: fields, table, join table, wheres, group by, order by field, order by type
 			queryStatement = "select %s from " + placeholder + "%s %s %s order by " + placeholder + "." + placeholder + " %s LIMIT ? OFFSET ?"
@@ -544,7 +545,7 @@ func (tb *DefaultTable) getDataFromDatabase(params parameter.Parameters) (PanelI
 
 	groupBy := ""
 	if len(joinTables) > 0 {
-		if connection.Name() == db.DriverMssql {
+		if connection.Name() == db.DriverMssql || connection.Name() == db.DriverPostgresql {
 			groupBy = " GROUP BY " + groupFields
 		} else {
 			groupBy = " GROUP BY " + pk
@@ -608,7 +609,7 @@ func (tb *DefaultTable) getDataFromDatabase(params parameter.Parameters) (PanelI
 	return PanelInfo{
 		Thead:    thead,
 		InfoList: infoList,
-		Paginator: tb.GetPaginator(size, params,
+		Paginator: tb.GetPaginator(ctx, size, params,
 			template.HTML(fmt.Sprintf("<b>"+language.Get("query time")+": </b>"+
 				fmt.Sprintf("%.3fms", endTime.Sub(beginTime).Seconds()*1000)))),
 		Title:          tb.Info.Title,
@@ -702,7 +703,7 @@ func (tb *DefaultTable) GetDataWithId(param parameter.Parameters) (FormInfo, err
 		}
 
 		if len(joinTables) > 0 {
-			if connection.Name() == db.DriverMssql {
+			if connection.Name() == db.DriverMssql || connection.Name() == db.DriverPostgresql {
 				groupBy = " GROUP BY " + groupFields
 			} else {
 				groupBy = " GROUP BY " + pk
@@ -754,7 +755,7 @@ func (tb *DefaultTable) GetDataWithId(param parameter.Parameters) (FormInfo, err
 }
 
 // UpdateData update data.
-func (tb *DefaultTable) UpdateData(dataList form.Values) error {
+func (tb *DefaultTable) UpdateData(ctx *context.Context, dataList form.Values) error {
 
 	dataList.Add(form.PostTypeKey, "0")
 
@@ -770,13 +771,13 @@ func (tb *DefaultTable) UpdateData(dataList form.Values) error {
 			go func() {
 				defer func() {
 					if err := recover(); err != nil {
-						logger.Error(err)
+						logger.ErrorCtx(ctx, "UpdateData error %+v", err)
 					}
 				}()
 
 				err := tb.Form.PostHook(dataList)
 				if err != nil {
-					logger.Error(err)
+					logger.ErrorCtx(ctx, "UpdateData PostHook error %+v", err)
 				}
 			}()
 		}()
@@ -822,7 +823,7 @@ func (tb *DefaultTable) UpdateData(dataList form.Values) error {
 }
 
 // InsertData insert data.
-func (tb *DefaultTable) InsertData(dataList form.Values) error {
+func (tb *DefaultTable) InsertData(ctx *context.Context, dataList form.Values) error {
 
 	dataList.Add(form.PostTypeKey, "1")
 
@@ -842,13 +843,13 @@ func (tb *DefaultTable) InsertData(dataList form.Values) error {
 			go func() {
 				defer func() {
 					if err := recover(); err != nil {
-						logger.Error(err)
+						logger.ErrorCtx(ctx, "InsertData error %+v", err)
 					}
 				}()
 
 				err := f.PostHook(dataList)
 				if err != nil {
-					logger.Error(err)
+					logger.ErrorCtx(ctx, "InsertData PostHook error %+v", err)
 				}
 			}()
 		}()

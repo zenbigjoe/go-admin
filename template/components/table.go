@@ -13,6 +13,7 @@ type TableAttribute struct {
 	Type       string
 	PrimaryKey string
 	Style      string
+	Class      string
 	HideThead  bool
 	NoAction   bool
 	Action     template.HTML
@@ -59,6 +60,13 @@ func (compo *TableAttribute) SetStyle(style string) types.TableAttribute {
 	return compo
 }
 
+func (compo *TableAttribute) SetSticky(sticky bool) types.TableAttribute {
+	if sticky {
+		compo.Class = "sticky_table"
+	}
+	return compo
+}
+
 func (compo *TableAttribute) SetMinWidth(value string) types.TableAttribute {
 	compo.MinWidth = value
 	return compo
@@ -81,6 +89,7 @@ type DataTableAttribute struct {
 	EditUrl           string
 	NewUrl            string
 	UpdateUrl         string
+	Class             string
 	HideThead         bool
 	DetailUrl         string
 	SortUrl           template.URL
@@ -106,6 +115,13 @@ func (compo *DataTableAttribute) GetDataTableHeader() template.HTML {
 
 func (compo *DataTableAttribute) SetThead(value types.Thead) types.DataTableAttribute {
 	compo.Thead = value
+	return compo
+}
+
+func (compo *DataTableAttribute) SetSticky(sticky bool) types.DataTableAttribute {
+	if sticky {
+		compo.Class = "sticky_table"
+	}
 	return compo
 }
 
@@ -221,7 +237,7 @@ func (compo *DataTableAttribute) SetNoAction() types.DataTableAttribute {
 
 func (compo *DataTableAttribute) GetContent() template.HTML {
 	if compo.MinWidth == "" {
-		compo.MinWidth = "1000px"
+		compo.MinWidth = "1600px"
 	}
 	if !compo.NoAction && compo.EditUrl == "" && compo.DeleteUrl == "" && compo.DetailUrl == "" && compo.Action == "" {
 		compo.NoAction = true

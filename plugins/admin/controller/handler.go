@@ -3,7 +3,6 @@ package controller
 import (
 	template2 "html/template"
 	"regexp"
-	"strings"
 
 	"github.com/GoAdminGroup/go-admin/context"
 	"github.com/GoAdminGroup/go-admin/modules/auth"
@@ -16,6 +15,8 @@ import (
 	"github.com/GoAdminGroup/go-admin/plugins/admin/modules/table"
 	"github.com/GoAdminGroup/go-admin/template"
 	"github.com/GoAdminGroup/go-admin/template/types"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // GlobalDeferHandler is a global error handler of admin plugin.
@@ -28,7 +29,7 @@ func (h *Handler) GlobalDeferHandler(ctx *context.Context) {
 	}
 
 	if err := recover(); err != nil {
-		logger.Error(err)
+		logger.ErrorCtx(ctx, "GlobalDeferHandler error %+v", err)
 
 		var (
 			errMsg string
@@ -60,7 +61,7 @@ func (h *Handler) GlobalDeferHandler(ctx *context.Context) {
 			return
 		}
 
-		h.HTML(ctx, auth.Auth(ctx), template.WarningPanelWithDescAndTitle(errMsg, errors.Msg, errors.Msg))
+		h.HTML(ctx, auth.Auth(ctx), template.WarningPanelWithDescAndTitle(ctx, errMsg, errors.Msg, errors.Msg))
 	}
 }
 
@@ -97,11 +98,11 @@ func (h *Handler) setFormWithReturnErrMessage(ctx *context.Context, errMsg strin
 		panel.GetInfo().SortField, panel.GetInfo().GetSort()).GetRouteParamStr()
 
 	h.HTML(ctx, auth.Auth(ctx), types.Panel{
-		Content: aAlert().Warning(errMsg) + formContent(aForm().
+		Content: aAlert(ctx).Warning(errMsg) + formContent(ctx, aForm(ctx).
 			SetContent(formInfo.FieldList).
 			SetTabContents(formInfo.GroupFieldList).
 			SetTabHeaders(formInfo.GroupFieldHeaders).
-			SetTitle(template2.HTML(strings.Title(kind))).
+			SetTitle(template2.HTML(cases.Title(language.Und).String(kind))).
 			SetPrimaryKey(panel.GetPrimaryKey().Name).
 			SetPrefix(h.config.PrefixFixSlash()).
 			SetHiddenFields(map[string]string{
@@ -109,7 +110,7 @@ func (h *Handler) setFormWithReturnErrMessage(ctx *context.Context, errMsg strin
 				form.PreviousKey: h.config.Url("/info/" + prefix + queryParam),
 			}).
 			SetUrl(h.config.Url("/"+kind+"/"+prefix)).
-			SetOperationFooter(formFooter(kind, f.IsHideContinueEditCheckBox, f.IsHideContinueNewCheckBox,
+			SetOperationFooter(formFooter(ctx, kind, f.IsHideContinueEditCheckBox, f.IsHideContinueNewCheckBox,
 				f.IsHideResetButton, btnWord)).
 			SetHeader(f.HeaderHtml).
 			SetFooter(f.FooterHtml), len(formInfo.GroupFieldHeaders) > 0,

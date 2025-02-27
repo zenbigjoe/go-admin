@@ -5,12 +5,13 @@ import (
 	"net/url"
 
 	"github.com/GoAdminGroup/go-admin/context"
+	"github.com/GoAdminGroup/go-admin/modules/language"
 	"github.com/GoAdminGroup/go-admin/modules/utils"
 	"github.com/GoAdminGroup/go-admin/plugins/admin/models"
 )
 
 type Button interface {
-	Content() (template.HTML, template.JS)
+	Content(ctx *context.Context) (template.HTML, template.JS)
 	GetAction() Action
 	URL() string
 	METHOD() string
@@ -86,7 +87,7 @@ func GetColumnButton(title template.HTML, icon string, action Action, colors ...
 	return defaultButton(title, "", icon, action, true, colors...)
 }
 
-func (b *DefaultButton) Content() (template.HTML, template.JS) {
+func (b *DefaultButton) Content(ctx *context.Context) (template.HTML, template.JS) {
 
 	color := template.HTML("")
 	if b.Color != template.HTML("") {
@@ -115,7 +116,7 @@ func (b *DefaultButton) Content() (template.HTML, template.JS) {
 	if b.Group {
 		h += `</div>`
 	}
-	return h + b.Action.ExtContent(), b.Action.Js()
+	return h + b.Action.ExtContent(ctx), b.Action.Js()
 }
 
 type ActionButton struct {
@@ -145,9 +146,9 @@ func GetActionButton(title template.HTML, action Action, ids ...string) *ActionB
 	}
 }
 
-func (b *ActionButton) Content() (template.HTML, template.JS) {
+func (b *ActionButton) Content(ctx *context.Context) (template.HTML, template.JS) {
 	h := template.HTML(`<li style="cursor: pointer;"><a data-id="{{.Id}}" class="`+template.HTML(b.Id)+` `+
-		b.Action.BtnClass()+`" `+b.Action.BtnAttribute()+`>`+b.Title+`</a></li>`) + b.Action.ExtContent()
+		b.Action.BtnClass()+`" `+b.Action.BtnAttribute()+`>`+b.Title+`</a></li>`) + b.Action.ExtContent(ctx)
 	return h, b.Action.Js()
 }
 
@@ -179,9 +180,9 @@ func GetActionIconButton(icon string, action Action, ids ...string) *ActionIconB
 	}
 }
 
-func (b *ActionIconButton) Content() (template.HTML, template.JS) {
+func (b *ActionIconButton) Content(ctx *context.Context) (template.HTML, template.JS) {
 	h := template.HTML(`<a data-id="{{.Id}}" class="`+template.HTML(b.Id)+` `+
-		b.Action.BtnClass()+`" `+b.Action.BtnAttribute()+`><i class="fa `+b.Icon+`" style="font-size: 16px;"></i></a>`) + b.Action.ExtContent()
+		b.Action.BtnClass()+`" `+b.Action.BtnAttribute()+`><i class="fa `+b.Icon+`" style="font-size: 16px;"></i></a>`) + b.Action.ExtContent(ctx)
 	return h, b.Action.Js()
 }
 
@@ -191,12 +192,12 @@ func (b Buttons) Add(btn Button) Buttons {
 	return append(b, btn)
 }
 
-func (b Buttons) Content() (template.HTML, template.JS) {
+func (b Buttons) Content(ctx *context.Context) (template.HTML, template.JS) {
 	h := template.HTML("")
 	j := template.JS("")
 
 	for _, btn := range b {
-		hh, jj := btn.Content()
+		hh, jj := btn.Content(ctx)
 		h += hh
 		j += jj
 	}
@@ -209,11 +210,11 @@ func (b Buttons) Copy() Buttons {
 	return c
 }
 
-func (b Buttons) FooterContent() template.HTML {
+func (b Buttons) FooterContent(ctx *context.Context) template.HTML {
 	footer := template.HTML("")
 
 	for _, btn := range b {
-		footer += btn.GetAction().FooterContent()
+		footer += btn.GetAction().FooterContent(ctx)
 	}
 	return footer
 }
@@ -250,7 +251,7 @@ func (b Buttons) CheckPermissionWhenURLAndMethodNotEmpty(user models.UserModel) 
 
 func (b Buttons) AddNavButton(ico, name string, action Action) Buttons {
 	if !b.CheckExist(name) {
-		return append(b, GetNavButton("", ico, action, name))
+		return append(b, GetNavButton(language.GetFromHtml(template.HTML(name)), ico, action, name))
 	}
 	return b
 }
@@ -289,10 +290,10 @@ func (b Buttons) Callbacks() []context.Node {
 }
 
 const (
-	NavBtnSiteName = "go_admin_site_navbtn"
-	NavBtnInfoName = "go_admin_info_navbtn"
-	NavBtnToolName = "go_admin_tool_navbtn"
-	NavBtnPlugName = "go_admin_plug_navbtn"
+	NavBtnSiteName = "site setting"
+	NavBtnInfoName = "site info"
+	NavBtnToolName = "code generate tool"
+	NavBtnPlugName = "plugins"
 )
 
 func (b Buttons) RemoveSiteNavButton() Buttons {
@@ -340,7 +341,7 @@ func GetNavButton(title template.HTML, icon string, action Action, names ...stri
 	}
 }
 
-func (n *NavButton) Content() (template.HTML, template.JS) {
+func (n *NavButton) Content(ctx *context.Context) (template.HTML, template.JS) {
 
 	ico := template.HTML("")
 	title := template.HTML("")
@@ -354,11 +355,11 @@ func (n *NavButton) Content() (template.HTML, template.JS) {
 	}
 
 	h := template.HTML(`<li>
-    <a class="`+template.HTML(n.Id)+` `+n.Action.BtnClass()+`" `+n.Action.BtnAttribute()+`>
+    <a class="`+template.HTML(n.Id)+` `+n.Action.BtnClass()+` dropdown-item" `+n.Action.BtnAttribute()+`>
       `+ico+`
       `+title+`
     </a>
-</li>`) + n.Action.ExtContent()
+</li>`) + n.Action.ExtContent(ctx)
 	return h, n.Action.Js()
 }
 
@@ -401,7 +402,7 @@ func (n *NavDropDownButton) AddItem(item *NavDropDownItemButton) {
 	n.Items = append(n.Items, item)
 }
 
-func (n *NavDropDownButton) Content() (template.HTML, template.JS) {
+func (n *NavDropDownButton) Content(ctx *context.Context) (template.HTML, template.JS) {
 
 	ico := template.HTML("")
 	title := template.HTML("")
@@ -418,7 +419,7 @@ func (n *NavDropDownButton) Content() (template.HTML, template.JS) {
 	js := template.JS("")
 
 	for _, item := range n.Items {
-		c, j := item.Content()
+		c, j := item.Content(ctx)
 		content += c
 		js += j
 	}
@@ -466,7 +467,7 @@ func GetDropDownItemButton(title template.HTML, action Action, names ...string) 
 	}
 }
 
-func (n *NavDropDownItemButton) Content() (template.HTML, template.JS) {
+func (n *NavDropDownItemButton) Content(ctx *context.Context) (template.HTML, template.JS) {
 
 	title := template.HTML("")
 
@@ -477,6 +478,6 @@ func (n *NavDropDownItemButton) Content() (template.HTML, template.JS) {
 	h := template.HTML(`<li><a class="dropdown-item `+template.HTML(n.Id)+` `+
 		n.Action.BtnClass()+`" `+n.Action.BtnAttribute()+`>
       `+title+`
-</a></li>`) + n.Action.ExtContent()
+</a></li>`) + n.Action.ExtContent(ctx)
 	return h, n.Action.Js()
 }

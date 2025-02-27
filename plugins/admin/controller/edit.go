@@ -42,7 +42,7 @@ func (h *Handler) showForm(ctx *context.Context, alert template2.HTML, prefix st
 			return
 		}
 		h.HTML(ctx, auth.Auth(ctx),
-			template.WarningPanel(panel.GetForm().PageError.Error(),
+			template.WarningPanel(ctx, panel.GetForm().PageError.Error(),
 				template.GetPageTypeFromPageError(panel.GetForm().PageError)), template.ExecuteOptions{Animation: param.Animation})
 		return
 	}
@@ -61,9 +61,9 @@ func (h *Handler) showForm(ctx *context.Context, alert template2.HTML, prefix st
 	formInfo, err := panel.GetDataWithId(param)
 
 	if err != nil {
-		logger.Error("receive data error: ", err)
+		logger.ErrorCtx(ctx, "receive data error: %+v", err)
 		h.HTML(ctx, user, template.
-			WarningPanelWithDescAndTitle(err.Error(), panel.GetForm().Description, panel.GetForm().Title),
+			WarningPanelWithDescAndTitle(ctx, err.Error(), panel.GetForm().Description, panel.GetForm().Title),
 			template.ExecuteOptions{Animation: alert == "" || ((len(animation) > 0) && animation[0])})
 
 		if isEdit {
@@ -99,7 +99,7 @@ func (h *Handler) showForm(ctx *context.Context, alert template2.HTML, prefix st
 		hiddenFields[constant.IframeIDKey] = ctx.Query(constant.IframeIDKey)
 	}
 
-	content := formContent(aForm().
+	content := formContent(ctx, aForm(ctx).
 		SetContent(formInfo.FieldList).
 		SetFieldsHTML(f.HTMLContent).
 		SetTabContents(formInfo.GroupFieldList).
@@ -113,7 +113,7 @@ func (h *Handler) showForm(ctx *context.Context, alert template2.HTML, prefix st
 		SetAjax(f.AjaxSuccessJS, f.AjaxErrorJS).
 		SetLayout(f.Layout).
 		SetHiddenFields(hiddenFields).
-		SetOperationFooter(formFooter(footerKind,
+		SetOperationFooter(formFooter(ctx, footerKind,
 			f.IsHideContinueEditCheckBox,
 			f.IsHideContinueNewCheckBox,
 			f.IsHideResetButton, f.FormEditBtnWord)).
@@ -143,11 +143,11 @@ func (h *Handler) EditForm(ctx *context.Context) {
 	if len(param.MultiForm.File) > 0 {
 		err := file.GetFileEngine(h.config.FileUploadEngine.Name).Upload(param.MultiForm)
 		if err != nil {
-			logger.Error("get file engine error: ", err)
+			logger.ErrorCtx(ctx, "get file engine error: %+v", err)
 			if ctx.WantJSON() {
 				response.Error(ctx, err.Error())
 			} else {
-				h.showForm(ctx, aAlert().Warning(err.Error()), param.Prefix, param.Param, true)
+				h.showForm(ctx, aAlert(ctx).Warning(err.Error()), param.Prefix, param.Param, true)
 			}
 			return
 		}
@@ -169,15 +169,15 @@ func (h *Handler) EditForm(ctx *context.Context) {
 		}
 	}
 
-	err := param.Panel.UpdateData(param.Value())
+	err := param.Panel.UpdateData(ctx, param.Value())
 	if err != nil {
-		logger.Error("update data error: ", err)
+		logger.ErrorCtx(ctx, "update data error: %+v", err)
 		if ctx.WantJSON() {
 			response.Error(ctx, err.Error(), map[string]interface{}{
 				"token": h.authSrv().AddToken(),
 			})
 		} else {
-			h.showForm(ctx, aAlert().Warning(err.Error()), param.Prefix, param.Param, true)
+			h.showForm(ctx, aAlert(ctx).Warning(err.Error()), param.Prefix, param.Param, true)
 		}
 		return
 	}

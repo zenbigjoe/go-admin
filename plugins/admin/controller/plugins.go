@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,21 +44,21 @@ func (h *Handler) Plugins(ctx *context.Context) {
 		}, config.Url("/plugins/store"), true))
 	}
 	for i := 0; i < len(list); i += 6 {
-		box1 := aBox().
-			SetBody(h.pluginBox(GetPluginBoxParamFromPlug(list[i]))).
+		box1 := aBox(ctx).
+			SetBody(h.pluginBox(ctx, GetPluginBoxParamFromPlug(list[i]))).
 			GetContent()
-		content := aCol().SetSize(size).SetContent(box1).GetContent()
+		content := aCol(ctx).SetSize(size).SetContent(box1).GetContent()
 		offset := len(list) - i
 		if offset > 6 {
 			offset = 6
 		}
 		for j := i + 1; j < offset; j++ {
-			box2 := aBox().
-				SetBody(h.pluginBox(GetPluginBoxParamFromPlug(list[j]))).
+			box2 := aBox(ctx).
+				SetBody(h.pluginBox(ctx, GetPluginBoxParamFromPlug(list[j]))).
 				GetContent()
-			content += aCol().SetSize(size).SetContent(box2).GetContent()
+			content += aCol(ctx).SetSize(size).SetContent(box2).GetContent()
 		}
-		rows += aRow().SetContent(content).GetContent()
+		rows += aRow(ctx).SetContent(content).GetContent()
 	}
 	h.HTML(ctx, auth.Auth(ctx), types.Panel{
 		Content:     rows,
@@ -105,27 +104,27 @@ func (h *Handler) PluginStore(ctx *context.Context) {
 	}
 
 	for i := 0; i < len(list); i += 3 {
-		box1 := aBox().
-			SetBody(h.pluginStoreBox(GetPluginBoxParamFromPlug(list[i]))).
+		box1 := aBox(ctx).
+			SetBody(h.pluginStoreBox(ctx, GetPluginBoxParamFromPlug(list[i]))).
 			GetContent()
-		col1 := aCol().SetSize(size).SetContent(box1).GetContent()
+		col1 := aCol(ctx).SetSize(size).SetContent(box1).GetContent()
 		box2, col2, box3, col3 := template.HTML(""), template.HTML(""), template.HTML(""), template.HTML("")
 		if i+1 < len(list) {
-			box2 = aBox().
-				SetBody(h.pluginStoreBox(GetPluginBoxParamFromPlug(list[i+1]))).
+			box2 = aBox(ctx).
+				SetBody(h.pluginStoreBox(ctx, GetPluginBoxParamFromPlug(list[i+1]))).
 				GetContent()
-			col2 = aCol().SetSize(size).SetContent(box2).GetContent()
+			col2 = aCol(ctx).SetSize(size).SetContent(box2).GetContent()
 			if i+2 < len(list) {
-				box3 = aBox().
-					SetBody(h.pluginStoreBox(GetPluginBoxParamFromPlug(list[i+2]))).
+				box3 = aBox(ctx).
+					SetBody(h.pluginStoreBox(ctx, GetPluginBoxParamFromPlug(list[i+2]))).
 					GetContent()
-				col3 = aCol().SetSize(size).SetContent(box3).GetContent()
+				col3 = aCol(ctx).SetSize(size).SetContent(box3).GetContent()
 			}
 		}
-		rows += aRow().SetContent(col1 + col2 + col3).GetContent()
+		rows += aRow(ctx).SetContent(col1 + col2 + col3).GetContent()
 	}
 
-	detailPopupModal := template2.Default().Popup().SetID("detail-popup-modal").
+	detailPopupModal := template2.Default(ctx).Popup().SetID("detail-popup-modal").
 		SetTitle(plugWordHTML("plugin detail")).
 		SetBody(pluginsPageDetailPopupBody()).
 		SetWidth("730px").
@@ -133,16 +132,16 @@ func (h *Handler) PluginStore(ctx *context.Context) {
 		SetFooter("1").
 		GetContent()
 
-	buyPopupModal := template2.Default().Popup().SetID("buy-popup-modal").
+	buyPopupModal := template2.Default(ctx).Popup().SetID("buy-popup-modal").
 		SetTitle(plugWordHTML("plugin detail")).
 		SetWidth("730px").
 		SetHeight("400px").
 		SetFooter("1").
 		GetContent()
 
-	loginPopupModal := template2.Default().Popup().SetID("login-popup-modal").
+	loginPopupModal := template2.Default(ctx).Popup().SetID("login-popup-modal").
 		SetTitle(plugWordHTML("login to goadmin member system")).
-		SetBody(aForm().SetContent(types.FormFields{
+		SetBody(aForm(ctx).SetContent(types.FormFields{
 			{Field: "name", Head: plugWord("account"), FormType: form.Text, Editable: true},
 			{Field: "password", Head: plugWord("password"), FormType: form.Password, Editable: true,
 				HelpMsg: template.HTML(fmt.Sprintf(plugWord("no account? click %s here %s to register."),
@@ -227,13 +226,13 @@ func GetPluginBoxParamFromPlug(plug plugins.Plugin) PluginBoxParam {
 	}
 }
 
-func (h *Handler) pluginStoreBox(param PluginBoxParam) template.HTML {
+func (h *Handler) pluginStoreBox(ctx *context.Context, param PluginBoxParam) template.HTML {
 	cover := template2.HTML(param.Info.MiniCover)
 	if cover == template2.HTML("") {
 		cover = template2.HTML(config.Url("/assets/dist/img/plugin_default.png"))
 	}
 	col1 := html.DivEl().SetClass("plugin-store-item-img").
-		SetContent(aImage().
+		SetContent(aImage(ctx).
 			SetSrc(cover).
 			SetHeight("110px").
 			SetWidth("110px").
@@ -296,7 +295,7 @@ func (h *Handler) pluginStoreBox(param PluginBoxParam) template.HTML {
 	return html.Div(col1+col2, html.M{"clear": "both"})
 }
 
-func (h *Handler) pluginBox(param PluginBoxParam) template.HTML {
+func (h *Handler) pluginBox(ctx *context.Context, param PluginBoxParam) template.HTML {
 	cover := template2.HTML(param.Info.MiniCover)
 	if cover == template2.HTML("") {
 		cover = "/admin/assets/dist/img/plugin_default.png"
@@ -309,7 +308,7 @@ func (h *Handler) pluginBox(param PluginBoxParam) template.HTML {
 		label = html.SpanEl().SetClass("plugin-item-label").SetContent(language.GetFromHtml("uninstalled")).Get()
 	}
 	col1 := html.AEl().SetContent(html.DivEl().SetClass("plugin-item-img").
-		SetContent(aImage().
+		SetContent(aImage(ctx).
 			SetSrc(cover).
 			GetContent()+
 			html.PEl().SetContent(language.GetFromHtml(template.HTML(param.Info.Title), param.Name)).
@@ -363,7 +362,7 @@ func (h *Handler) PluginDownload(ctx *context.Context) {
 		var err error
 		downloadURL, extraDownloadURL, err = remote_server.GetDownloadURL(plug.GetInfo().Uuid, ctx.Cookie(remote_server.TokenKey))
 		if err != nil {
-			logger.Error("download plugins error", err)
+			logger.ErrorCtx(ctx, "download plugins error: %+v", err)
 			ctx.JSON(http.StatusOK, map[string]interface{}{
 				"code": 500,
 				"msg":  plugWord("download fail"),
@@ -377,7 +376,7 @@ func (h *Handler) PluginDownload(ctx *context.Context) {
 	err := utils.DownloadTo(downloadURL, tempFile)
 
 	if err != nil {
-		logger.Error("download plugins error", map[string]interface{}{
+		logger.ErrorCtx(ctx, "download plugins error %+v", map[string]interface{}{
 			"error":       err,
 			"downloadURL": downloadURL,
 		})
@@ -411,7 +410,7 @@ func (h *Handler) PluginDownload(ctx *context.Context) {
 	err = utils.UnzipDir(tempFile, installPath)
 
 	if err != nil {
-		logger.Error("download plugins, unzip error", map[string]interface{}{
+		logger.ErrorCtx(ctx, "download plugins, unzip error %+v", map[string]interface{}{
 			"error":       err,
 			"installPath": installPath,
 		})
@@ -435,7 +434,7 @@ func (h *Handler) PluginDownload(ctx *context.Context) {
 			err = os.Rename(nowPath, rawPath+"@"+plug.GetInfo().Version)
 		}
 		if err != nil {
-			logger.Error("download plugins, rename error", map[string]interface{}{
+			logger.ErrorCtx(ctx, "download plugins, rename error %+v", map[string]interface{}{
 				"error":   err,
 				"nowPath": nowPath,
 				"rawPath": rawPath,
@@ -450,7 +449,7 @@ func (h *Handler) PluginDownload(ctx *context.Context) {
 		rawPath := installPath + "/" + name
 		err = os.Rename(rawPath, rawPath+"@"+plug.GetInfo().Version)
 		if err != nil {
-			logger.Error("download plugins, rename error", map[string]interface{}{
+			logger.ErrorCtx(ctx, "download plugins, rename error %+v", map[string]interface{}{
 				"error":   err,
 				"rawPath": rawPath,
 			})
@@ -463,25 +462,25 @@ func (h *Handler) PluginDownload(ctx *context.Context) {
 	}
 
 	if h.config.BootstrapFilePath != "" && utils.FileExist(h.config.BootstrapFilePath) {
-		content, err := ioutil.ReadFile(h.config.BootstrapFilePath)
+		content, err := os.ReadFile(h.config.BootstrapFilePath)
 		if err != nil {
-			logger.Error("read bootstrap file error: ", err)
+			logger.ErrorCtx(ctx, "read bootstrap file error: %+v", err)
 		} else {
-			err = ioutil.WriteFile(h.config.BootstrapFilePath, []byte(string(content)+`
+			err = os.WriteFile(h.config.BootstrapFilePath, []byte(string(content)+`
 import _ "`+plug.GetInfo().ModulePath+`"`), 0644)
 			if err != nil {
-				logger.Error("write bootstrap file error: ", err)
+				logger.ErrorCtx(ctx, "write bootstrap file error: %+v", err)
 			}
 		}
 	}
 
 	if h.config.GoModFilePath != "" && utils.FileExist(h.config.GoModFilePath) &&
 		plug.GetInfo().CanUpdate && plug.GetInfo().OldVersion != "" {
-		content, _ := ioutil.ReadFile(h.config.BootstrapFilePath)
+		content, _ := os.ReadFile(h.config.BootstrapFilePath)
 		src := plug.GetInfo().ModulePath + " " + plug.GetInfo().OldVersion
 		dist := plug.GetInfo().ModulePath + " " + plug.GetInfo().Version
 		content = bytes.ReplaceAll(content, []byte(src), []byte(dist))
-		_ = ioutil.WriteFile(h.config.BootstrapFilePath, content, 0644)
+		_ = os.WriteFile(h.config.BootstrapFilePath, content, 0644)
 	}
 
 	// TODO: 实现运行环境与编译环境隔离
@@ -490,7 +489,7 @@ import _ "`+plug.GetInfo().ModulePath+`"`), 0644)
 		err = utils.DownloadTo(extraDownloadURL, "./"+plug.Name()+"_extra_"+
 			fmt.Sprintf("%d", time.Now().Unix())+".zip")
 		if err != nil {
-			logger.Error("failed to download "+plug.Name()+" extra data: ", err)
+			logger.ErrorCtx(ctx, "failed to download "+plug.Name()+" extra data: %+v", err)
 		}
 	}
 

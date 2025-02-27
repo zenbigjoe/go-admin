@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/GoAdminGroup/go-admin/context"
 	c "github.com/GoAdminGroup/go-admin/modules/config"
 	errors2 "github.com/GoAdminGroup/go-admin/modules/errors"
 	"github.com/GoAdminGroup/go-admin/modules/language"
@@ -24,6 +25,8 @@ import (
 	"github.com/GoAdminGroup/go-admin/plugins/admin/models"
 	"github.com/GoAdminGroup/go-admin/template/login"
 	"github.com/GoAdminGroup/go-admin/template/types"
+	"golang.org/x/text/cases"
+	textLang "golang.org/x/text/language"
 )
 
 // Template is the interface which contains methods of ui components.
@@ -129,7 +132,15 @@ var templateMap = make(map[string]Template)
 
 // Get the template interface by theme name. If the
 // name is not found, it panics.
-func Get(theme string) Template {
+func Get(ctx *context.Context, theme string) Template {
+	if ctx != nil {
+		queryTheme := ctx.Theme()
+		if queryTheme != "" {
+			if temp, ok := templateMap[queryTheme]; ok {
+				return temp
+			}
+		}
+	}
 	if temp, ok := templateMap[theme]; ok {
 		return temp
 	}
@@ -138,7 +149,15 @@ func Get(theme string) Template {
 
 // Default get the default template with the theme name set with the global config.
 // If the name is not found, it panics.
-func Default() Template {
+func Default(ctx ...*context.Context) Template {
+	if len(ctx) > 0 && ctx[0] != nil {
+		queryTheme := ctx[0].Theme()
+		if queryTheme != "" {
+			if temp, ok := templateMap[queryTheme]; ok {
+				return temp
+			}
+		}
+	}
 	if temp, ok := templateMap[c.GetTheme()]; ok {
 		return temp
 	}
@@ -192,28 +211,28 @@ func VersionCompare(toCompare string, versions []string) bool {
 	return false
 }
 
-func GetPageContentFromPageType(title, desc, msg string, pt PageType) (template.HTML, template.HTML, template.HTML) {
+func GetPageContentFromPageType(ctx *context.Context, title, desc, msg string, pt PageType) (template.HTML, template.HTML, template.HTML) {
 	if c.GetDebug() {
-		return template.HTML(title), template.HTML(desc), Default().Alert().SetTitle(errors2.MsgWithIcon).Warning(msg)
+		return template.HTML(title), template.HTML(desc), Default(ctx).Alert().SetTitle(errors2.MsgWithIcon).Warning(msg)
 	}
 
 	if pt == Missing404Page {
 		if c.GetCustom404HTML() != template.HTML("") {
 			return "", "", c.GetCustom404HTML()
 		} else {
-			return "", "", Default().Get404HTML()
+			return "", "", Default(ctx).Get404HTML()
 		}
 	} else if pt == NoPermission403Page {
 		if c.GetCustom404HTML() != template.HTML("") {
 			return "", "", c.GetCustom403HTML()
 		} else {
-			return "", "", Default().Get403HTML()
+			return "", "", Default(ctx).Get403HTML()
 		}
 	} else {
 		if c.GetCustom500HTML() != template.HTML("") {
 			return "", "", c.GetCustom500HTML()
 		} else {
-			return "", "", Default().Get500HTML()
+			return "", "", Default(ctx).Get500HTML()
 		}
 	}
 }
@@ -238,7 +257,7 @@ func AddFromPlugin(name string, mod string) {
 		panic(err)
 	}
 
-	tempPlugin, err := plug.Lookup(strings.Title(name))
+	tempPlugin, err := plug.Lookup(cases.Title(textLang.Und).String(name))
 	if err != nil {
 		logger.Error("AddFromPlugin err", err)
 		panic(err)
@@ -317,8 +336,8 @@ func GetComponentAssetWithinPage() []string {
 	return assets
 }
 
-func GetComponentAssetImportHTML() (res template.HTML) {
-	res = Default().GetAssetImportHTML(c.GetExcludeThemeComponents()...)
+func GetComponentAssetImportHTML(ctx *context.Context) (res template.HTML) {
+	res = Default(ctx).GetAssetImportHTML(c.GetExcludeThemeComponents()...)
 	assets := GetComponentAssetWithinPage()
 	for i := 0; i < len(assets); i++ {
 		res += getHTMLFromAssetUrl(assets[i])
@@ -412,11 +431,11 @@ func updateNavJS(isPjax bool) template.JS {
 		return ""
 	}
 	return `$(function () {
-	let lis = $(".navbar-custom-menu .nav.navbar-nav li");
-	for (var i = lis.length - 8; i > -1; i--) {
+	let lis = $(".user-menu .dropdown-menu li");
+	for (i = 0; i < lis.length - 2; i++) {
 		$(lis[i]).remove();
 	}
-	$(".navbar-custom-menu .nav.navbar-nav").prepend($("#navbar-nav-custom").html());
+	$(".user-menu .dropdown-menu").prepend($("#navbar-nav-custom").html());
 });`
 }
 
@@ -436,14 +455,14 @@ func GetExecuteOptions(options []ExecuteOptions) ExecuteOptions {
 	return options[0]
 }
 
-func Execute(param *ExecuteParam) *bytes.Buffer {
+func Execute(ctx *context.Context, param *ExecuteParam) *bytes.Buffer {
 
 	buf := new(bytes.Buffer)
 	err := param.Tmpl.ExecuteTemplate(buf, param.TmplName,
-		types.NewPage(&types.NewPageParam{
+		types.NewPage(ctx, &types.NewPageParam{
 			User:       param.User,
 			Menu:       param.Menu,
-			Assets:     GetComponentAssetImportHTML(),
+			Assets:     GetComponentAssetImportHTML(ctx),
 			Buttons:    param.Buttons,
 			Iframe:     param.Iframe,
 			UpdateMenu: param.IsPjax,
@@ -451,8 +470,8 @@ func Execute(param *ExecuteParam) *bytes.Buffer {
 				GetContent(append([]bool{param.Config.IsProductionEnvironment() && !param.NoCompress},
 					param.Animation)...).AddJS(param.Menu.GetUpdateJS(param.IsPjax)).
 				AddJS(updateNavAndLogoJS(param.Logo)).AddJS(updateNavJS(param.IsPjax)),
-			TmplHeadHTML: Default().GetHeadHTML(),
-			TmplFootJS:   Default().GetFootJS(),
+			TmplHeadHTML: Default(ctx).GetHeadHTML(),
+			TmplFootJS:   Default(ctx).GetFootJS(),
 			Logo:         param.Logo,
 		}))
 	if err != nil {
@@ -461,12 +480,12 @@ func Execute(param *ExecuteParam) *bytes.Buffer {
 	return buf
 }
 
-func WarningPanel(msg string, pts ...PageType) types.Panel {
+func WarningPanel(ctx *context.Context, msg string, pts ...PageType) types.Panel {
 	pt := Error500Page
 	if len(pts) > 0 {
 		pt = pts[0]
 	}
-	pageTitle, description, content := GetPageContentFromPageType(msg, msg, msg, pt)
+	pageTitle, description, content := GetPageContentFromPageType(ctx, msg, msg, msg, pt)
 	return types.Panel{
 		Content:     content,
 		Description: description,
@@ -474,12 +493,12 @@ func WarningPanel(msg string, pts ...PageType) types.Panel {
 	}
 }
 
-func WarningPanelWithDescAndTitle(msg, desc, title string, pts ...PageType) types.Panel {
+func WarningPanelWithDescAndTitle(ctx *context.Context, msg, desc, title string, pts ...PageType) types.Panel {
 	pt := Error500Page
 	if len(pts) > 0 {
 		pt = pts[0]
 	}
-	pageTitle, description, content := GetPageContentFromPageType(msg, desc, title, pt)
+	pageTitle, description, content := GetPageContentFromPageType(ctx, msg, desc, title, pt)
 	return types.Panel{
 		Content:     content,
 		Description: description,
@@ -555,10 +574,10 @@ func (b *BaseComponent) GetAsset(name string) ([]byte, error) { return nil, nil 
 func (b *BaseComponent) GetJS() template.JS                   { return b.JS }
 func (b *BaseComponent) GetCSS() template.CSS                 { return b.CSS }
 func (b *BaseComponent) GetCallbacks() types.Callbacks        { return b.Callbacks }
-func (b *BaseComponent) BindActionTo(action types.Action, id string) {
+func (b *BaseComponent) BindActionTo(ctx *context.Context, action types.Action, id string) {
 	action.SetBtnId(id)
 	b.JS += action.Js()
-	b.HTMLData += string(action.ExtContent())
+	b.HTMLData += string(action.ExtContent(ctx))
 	b.Callbacks = append(b.Callbacks, action.GetCallbacks())
 }
 func (b *BaseComponent) GetContentWithData(obj interface{}) template.HTML {

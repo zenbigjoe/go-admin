@@ -184,10 +184,10 @@ func (b *Base) HTMLFile(ctx *context.Context, path string, data map[string]inter
 
 	t, err := template2.ParseFiles(path)
 	if err != nil {
-		panel = template.WarningPanel(err.Error()).GetContent(config.IsProductionEnvironment())
+		panel = template.WarningPanel(ctx, err.Error()).GetContent(config.IsProductionEnvironment())
 	} else {
 		if err := t.Execute(buf, data); err != nil {
-			panel = template.WarningPanel(err.Error()).GetContent(config.IsProductionEnvironment())
+			panel = template.WarningPanel(ctx, err.Error()).GetContent(config.IsProductionEnvironment())
 		} else {
 			panel = types.Panel{
 				Content: template.HTML(buf.String()),
@@ -204,10 +204,10 @@ func (b *Base) HTMLFiles(ctx *context.Context, data map[string]interface{}, file
 
 	t, err := template2.ParseFiles(files...)
 	if err != nil {
-		panel = template.WarningPanel(err.Error()).GetContent(config.IsProductionEnvironment())
+		panel = template.WarningPanel(ctx, err.Error()).GetContent(config.IsProductionEnvironment())
 	} else {
 		if err := t.Execute(buf, data); err != nil {
-			panel = template.WarningPanel(err.Error()).GetContent(config.IsProductionEnvironment())
+			panel = template.WarningPanel(ctx, err.Error()).GetContent(config.IsProductionEnvironment())
 		} else {
 			panel = types.Panel{
 				Content: template.HTML(buf.String()),
@@ -275,9 +275,9 @@ func GetHandler(app *context.App) context.HandlerMap { return app.Handlers }
 
 func Execute(ctx *context.Context, conn db.Connection, navButtons types.Buttons, user models.UserModel,
 	panel types.Panel, options template.ExecuteOptions) *bytes.Buffer {
-	tmpl, tmplName := template.Get(config.GetTheme()).GetTemplate(ctx.IsPjax())
+	tmpl, tmplName := template.Get(ctx, config.GetTheme()).GetTemplate(ctx.IsPjax())
 
-	return template.Execute(&template.ExecuteParam{
+	return template.Execute(ctx, &template.ExecuteParam{
 		User:       user,
 		TmplName:   tmplName,
 		Tmpl:       tmpl,
@@ -298,9 +298,9 @@ func ExecuteWithCustomMenu(ctx *context.Context,
 	panel types.Panel,
 	menu *menu.Menu, logo string, options template.ExecuteOptions) *bytes.Buffer {
 
-	tmpl, tmplName := template.Get(config.GetTheme()).GetTemplate(ctx.IsPjax())
+	tmpl, tmplName := template.Get(ctx, config.GetTheme()).GetTemplate(ctx.IsPjax())
 
-	return template.Execute(&template.ExecuteParam{
+	return template.Execute(ctx, &template.ExecuteParam{
 		User:       user,
 		TmplName:   tmplName,
 		Tmpl:       tmpl,
@@ -323,7 +323,7 @@ func ExecuteWithMenu(ctx *context.Context,
 	panel types.Panel,
 	name, logo string, options template.ExecuteOptions) *bytes.Buffer {
 
-	tmpl, tmplName := template.Get(config.GetTheme()).GetTemplate(ctx.IsPjax())
+	tmpl, tmplName := template.Get(ctx, config.GetTheme()).GetTemplate(ctx.IsPjax())
 
 	btns := options.NavDropDownButton
 	if btns == nil {
@@ -342,7 +342,7 @@ func ExecuteWithMenu(ctx *context.Context,
 		}...)
 	}
 
-	return template.Execute(&template.ExecuteParam{
+	return template.Execute(ctx, &template.ExecuteParam{
 		User:      user,
 		TmplName:  tmplName,
 		Tmpl:      tmpl,

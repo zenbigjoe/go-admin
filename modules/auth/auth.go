@@ -5,6 +5,7 @@
 package auth
 
 import (
+	"log"
 	"sync"
 
 	"github.com/GoAdminGroup/go-admin/modules/db/dialect"
@@ -114,7 +115,8 @@ func GetTokenService(s interface{}) *TokenService {
 	if srv, ok := s.(*TokenService); ok {
 		return srv
 	}
-	panic("wrong service")
+	log.Panicf("wrong service: %+v", s)
+	return nil
 }
 
 // AddToken add the token to the CSRFToken.
@@ -135,10 +137,9 @@ func (s *TokenService) AddToken() string {
 
 // CheckToken check the given token with tokens in the CSRFToken, if exist
 // return true.
-func (s *TokenService) CheckToken(toCheckToken string) bool {
-	for i := 0; i < len(s.tokens); i++ {
-		if (s.tokens)[i] == toCheckToken {
-			s.tokens = append((s.tokens)[:i], (s.tokens)[i+1:]...)
+func (s *TokenService) CheckToken(toCheckToken string) (ok bool) {
+	defer func() {
+		if ok {
 			err := db.WithDriver(s.conn).Table("goadmin_session").
 				Where("sid", "=", toCheckToken).
 				Where("values", "=", "__csrf_token__").
@@ -146,10 +147,26 @@ func (s *TokenService) CheckToken(toCheckToken string) bool {
 			if db.CheckError(err, db.DELETE) {
 				logger.Error("csrf token delete from database error: ", err)
 			}
-			return true
+		}
+	}()
+
+	for i := 0; i < len(s.tokens); i++ {
+		if (s.tokens)[i] == toCheckToken {
+			s.tokens = append((s.tokens)[:i], (s.tokens)[i+1:]...)
+			ok = true
+			return
 		}
 	}
-	return false
+
+	item, err := db.WithDriver(s.conn).Table("goadmin_session").
+		Where("sid", "=", toCheckToken).
+		Where("values", "=", "__csrf_token__").
+		First()
+	if item != nil && err == nil {
+		ok = true
+		return
+	}
+	return
 }
 
 // CSRFToken is type of a csrf token list.
@@ -169,7 +186,8 @@ func GetService(s interface{}) *Service {
 	if srv, ok := s.(*Service); ok {
 		return srv
 	}
-	panic("wrong service")
+	log.Panicf("wrong service: %+v", s)
+	return nil
 }
 
 func NewService(processor Processor) *Service {

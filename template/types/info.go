@@ -447,17 +447,16 @@ func (f FieldList) GetFieldByFieldName(name string) Field {
 
 // Join store join table info. For example:
 //
-// Join {
-//     BaseTable:   "users",
-//     Field:       "role_id",
-//     Table:       "roles",
-//     JoinField:   "id",
-// }
+//	Join {
+//	    BaseTable:   "users",
+//	    Field:       "role_id",
+//	    Table:       "roles",
+//	    JoinField:   "id",
+//	}
 //
 // It will generate the join table sql like:
 //
 // ... left join roles on roles.id = users.role_id ...
-//
 type Join struct {
 	Table      string
 	TableAlias string
@@ -550,6 +549,8 @@ type ExportProcessFn func(param parameter.Parameters) (PanelInfo, error)
 
 // InfoPanel
 type InfoPanel struct {
+	Ctx *context.Context
+
 	FieldList         FieldList
 	curFieldListIndex int
 
@@ -766,8 +767,8 @@ type Action interface {
 	Js() template.JS
 	BtnAttribute() template.HTML
 	BtnClass() template.HTML
-	ExtContent() template.HTML
-	FooterContent() template.HTML
+	ExtContent(ctx *context.Context) template.HTML
+	FooterContent(ctx *context.Context) template.HTML
 	SetBtnId(btnId string)
 	SetBtnData(data interface{})
 	GetCallbacks() context.Node
@@ -775,14 +776,14 @@ type Action interface {
 
 type NilAction struct{}
 
-func (def *NilAction) SetBtnId(btnId string)        {}
-func (def *NilAction) SetBtnData(data interface{})  {}
-func (def *NilAction) Js() template.JS              { return "" }
-func (def *NilAction) BtnAttribute() template.HTML  { return "" }
-func (def *NilAction) BtnClass() template.HTML      { return "" }
-func (def *NilAction) ExtContent() template.HTML    { return "" }
-func (def *NilAction) FooterContent() template.HTML { return "" }
-func (def *NilAction) GetCallbacks() context.Node   { return context.Node{} }
+func (def *NilAction) SetBtnId(btnId string)                            {}
+func (def *NilAction) SetBtnData(data interface{})                      {}
+func (def *NilAction) Js() template.JS                                  { return "" }
+func (def *NilAction) BtnAttribute() template.HTML                      { return "" }
+func (def *NilAction) BtnClass() template.HTML                          { return "" }
+func (def *NilAction) ExtContent(ctx *context.Context) template.HTML    { return "" }
+func (def *NilAction) FooterContent(ctx *context.Context) template.HTML { return "" }
+func (def *NilAction) GetCallbacks() context.Node                       { return context.Node{} }
 
 type Actions []Action
 
@@ -797,14 +798,14 @@ func NewDefaultAction(attr, ext, footer template.HTML, js template.JS) *DefaultA
 	return &DefaultAction{Attr: attr, Ext: ext, Footer: footer, JS: js}
 }
 
-func (def *DefaultAction) SetBtnId(btnId string)        {}
-func (def *DefaultAction) SetBtnData(data interface{})  {}
-func (def *DefaultAction) Js() template.JS              { return def.JS }
-func (def *DefaultAction) BtnAttribute() template.HTML  { return def.Attr }
-func (def *DefaultAction) BtnClass() template.HTML      { return "" }
-func (def *DefaultAction) ExtContent() template.HTML    { return def.Ext }
-func (def *DefaultAction) FooterContent() template.HTML { return def.Footer }
-func (def *DefaultAction) GetCallbacks() context.Node   { return context.Node{} }
+func (def *DefaultAction) SetBtnId(btnId string)                            {}
+func (def *DefaultAction) SetBtnData(data interface{})                      {}
+func (def *DefaultAction) Js() template.JS                                  { return def.JS }
+func (def *DefaultAction) BtnAttribute() template.HTML                      { return def.Attr }
+func (def *DefaultAction) BtnClass() template.HTML                          { return "" }
+func (def *DefaultAction) ExtContent(ctx *context.Context) template.HTML    { return def.Ext }
+func (def *DefaultAction) FooterContent(ctx *context.Context) template.HTML { return def.Footer }
+func (def *DefaultAction) GetCallbacks() context.Node                       { return context.Node{} }
 
 var _ Action = (*DefaultAction)(nil)
 
@@ -812,8 +813,9 @@ var DefaultPageSizeList = []int{10, 20, 30, 50, 100}
 
 const DefaultPageSize = 10
 
-func NewInfoPanel(pk string) *InfoPanel {
+func NewInfoPanel(ctx *context.Context, pk string) *InfoPanel {
 	return &InfoPanel{
+		Ctx:                     ctx,
 		curFieldListIndex:       -1,
 		PageSizeList:            DefaultPageSizeList,
 		DefaultPageSize:         DefaultPageSize,
@@ -847,11 +849,11 @@ func (i *InfoPanel) WhereRaw(raw string, arg ...interface{}) *InfoPanel {
 	return i
 }
 
-func (i *InfoPanel) AddSelectBox(placeholder string, options FieldOptions, action Action, width ...int) *InfoPanel {
+func (i *InfoPanel) AddSelectBox(ctx *context.Context, placeholder string, options FieldOptions, action Action, width ...int) *InfoPanel {
 	options = append(FieldOptions{{Value: "", Text: language.Get("All")}}, options...)
 	action.SetBtnData(options)
 	i.addButton(GetDefaultSelection(placeholder, options, action, width...)).
-		addFooterHTML(action.FooterContent()).
+		addFooterHTML(action.FooterContent(ctx)).
 		addCallback(action.GetCallbacks())
 
 	return i
@@ -866,39 +868,39 @@ func (i *InfoPanel) IsExportValue() bool {
 	return i.ExportType == 1
 }
 
-func (i *InfoPanel) AddButtonRaw(btn Button, action Action) *InfoPanel {
+func (i *InfoPanel) AddButtonRaw(ctx *context.Context, btn Button, action Action) *InfoPanel {
 	i.Buttons = append(i.Buttons, btn)
-	i.addFooterHTML(action.FooterContent()).addCallback(action.GetCallbacks())
+	i.addFooterHTML(action.FooterContent(ctx)).addCallback(action.GetCallbacks())
 	return i
 }
 
-func (i *InfoPanel) AddButton(title template.HTML, icon string, action Action, color ...template.HTML) *InfoPanel {
+func (i *InfoPanel) AddButton(ctx *context.Context, title template.HTML, icon string, action Action, color ...template.HTML) *InfoPanel {
 	i.addButton(GetDefaultButtonGroup(title, icon, action, color...)).
-		addFooterHTML(action.FooterContent()).
+		addFooterHTML(action.FooterContent(ctx)).
 		addCallback(action.GetCallbacks())
 	return i
 }
 
-func (i *InfoPanel) AddActionIconButton(icon string, action Action, ids ...string) *InfoPanel {
+func (i *InfoPanel) AddActionIconButton(ctx *context.Context, icon string, action Action, ids ...string) *InfoPanel {
 	i.addActionButton(GetActionIconButton(icon, action, ids...)).
-		addFooterHTML(action.FooterContent()).
+		addFooterHTML(action.FooterContent(ctx)).
 		addCallback(action.GetCallbacks())
 
 	return i
 }
 
-func (i *InfoPanel) AddActionButtonFront(title template.HTML, action Action, ids ...string) *InfoPanel {
+func (i *InfoPanel) AddActionButtonFront(ctx *context.Context, title template.HTML, action Action, ids ...string) *InfoPanel {
 	i.SetActionButtonFold()
 	i.ActionButtons = append([]Button{GetActionButton(title, action, ids...)}, i.ActionButtons...)
-	i.addFooterHTML(action.FooterContent()).
+	i.addFooterHTML(action.FooterContent(ctx)).
 		addCallback(action.GetCallbacks())
 	return i
 }
 
-func (i *InfoPanel) AddActionButton(title template.HTML, action Action, ids ...string) *InfoPanel {
+func (i *InfoPanel) AddActionButton(ctx *context.Context, title template.HTML, action Action, ids ...string) *InfoPanel {
 	i.SetActionButtonFold()
 	i.addActionButton(GetActionButton(title, action, ids...)).
-		addFooterHTML(action.FooterContent()).
+		addFooterHTML(action.FooterContent(ctx)).
 		addCallback(action.GetCallbacks())
 
 	return i
@@ -1021,14 +1023,14 @@ func (i *InfoPanel) AddColumn(head string, fun FieldFilterFn) *InfoPanel {
 	return i
 }
 
-func (i *InfoPanel) AddColumnButtons(head string, buttons ...Button) *InfoPanel {
+func (i *InfoPanel) AddColumnButtons(ctx *context.Context, head string, buttons ...Button) *InfoPanel {
 	var content, js template.HTML
 	for _, btn := range buttons {
 		btn.GetAction().SetBtnId("." + btn.ID())
-		btnContent, btnJs := btn.Content()
+		btnContent, btnJs := btn.Content(ctx)
 		content += btnContent
 		js += template.HTML(btnJs)
-		i.FooterHtml += template.HTML(ParseTableDataTmpl(btn.GetAction().FooterContent()))
+		i.FooterHtml += template.HTML(ParseTableDataTmpl(btn.GetAction().FooterContent(ctx)))
 		i.Callbacks = i.Callbacks.AddCallback(btn.GetAction().GetCallbacks())
 	}
 	i.FooterHtml += template.HTML("<script>") + template.HTML(ParseTableDataTmpl(js)) + template.HTML("</script>")
@@ -1102,37 +1104,37 @@ type FieldLabelParam struct {
 }
 
 func (i *InfoPanel) FieldLabel(args ...FieldLabelParam) *InfoPanel {
-	i.addDisplayChains(displayFnGens["label"].Get(args))
+	i.addDisplayChains(displayFnGens["label"].Get(i.Ctx, args))
 	return i
 }
 
 func (i *InfoPanel) FieldImage(width, height string, prefix ...string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["image"].Get(width, height, prefix))
+	i.addDisplayChains(displayFnGens["image"].Get(i.Ctx, width, height, prefix))
 	return i
 }
 
 func (i *InfoPanel) FieldBool(flags ...string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["bool"].Get(flags))
+	i.addDisplayChains(displayFnGens["bool"].Get(i.Ctx, flags))
 	return i
 }
 
 func (i *InfoPanel) FieldLink(src string, openInNewTab ...bool) *InfoPanel {
-	i.addDisplayChains(displayFnGens["link"].Get(src, openInNewTab))
+	i.addDisplayChains(displayFnGens["link"].Get(i.Ctx, src, openInNewTab))
 	return i
 }
 
 func (i *InfoPanel) FieldFileSize() *InfoPanel {
-	i.addDisplayChains(displayFnGens["filesize"].Get())
+	i.addDisplayChains(displayFnGens["filesize"].Get(i.Ctx))
 	return i
 }
 
 func (i *InfoPanel) FieldDate(format string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["date"].Get(format))
+	i.addDisplayChains(displayFnGens["date"].Get(i.Ctx, format))
 	return i
 }
 
 func (i *InfoPanel) FieldIcon(icons map[string]string, defaultIcon string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["link"].Get(icons, defaultIcon))
+	i.addDisplayChains(displayFnGens["link"].Get(i.Ctx, icons, defaultIcon))
 	return i
 }
 
@@ -1146,7 +1148,7 @@ const (
 )
 
 func (i *InfoPanel) FieldDot(icons map[string]FieldDotColor, defaultDot FieldDotColor) *InfoPanel {
-	i.addDisplayChains(displayFnGens["dot"].Get(icons, defaultDot))
+	i.addDisplayChains(displayFnGens["dot"].Get(i.Ctx, icons, defaultDot))
 	return i
 }
 
@@ -1157,22 +1159,22 @@ type FieldProgressBarData struct {
 }
 
 func (i *InfoPanel) FieldProgressBar(data ...FieldProgressBarData) *InfoPanel {
-	i.addDisplayChains(displayFnGens["progressbar"].Get(data))
+	i.addDisplayChains(displayFnGens["progressbar"].Get(i.Ctx, data))
 	return i
 }
 
 func (i *InfoPanel) FieldLoading(data []string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["loading"].Get(data))
+	i.addDisplayChains(displayFnGens["loading"].Get(i.Ctx, data))
 	return i
 }
 
 func (i *InfoPanel) FieldDownLoadable(prefix ...string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["downloadable"].Get(prefix))
+	i.addDisplayChains(displayFnGens["downloadable"].Get(i.Ctx, prefix))
 	return i
 }
 
 func (i *InfoPanel) FieldCopyable(prefix ...string) *InfoPanel {
-	i.addDisplayChains(displayFnGens["copyable"].Get(prefix))
+	i.addDisplayChains(displayFnGens["copyable"].Get(i.Ctx, prefix))
 	if _, ok := i.DisplayGeneratorRecords["copyable"]; !ok {
 		i.addFooterHTML(`<script>` + displayFnGens["copyable"].JS() + `</script>`)
 		i.DisplayGeneratorRecords["copyable"] = struct{}{}
@@ -1183,12 +1185,12 @@ func (i *InfoPanel) FieldCopyable(prefix ...string) *InfoPanel {
 type FieldGetImgArrFn func(value string) []string
 
 func (i *InfoPanel) FieldCarousel(fn FieldGetImgArrFn, size ...int) *InfoPanel {
-	i.addDisplayChains(displayFnGens["carousel"].Get(fn, size))
+	i.addDisplayChains(displayFnGens["carousel"].Get(i.Ctx, fn, size))
 	return i
 }
 
 func (i *InfoPanel) FieldQrcode() *InfoPanel {
-	i.addDisplayChains(displayFnGens["qrcode"].Get())
+	i.addDisplayChains(displayFnGens["qrcode"].Get(i.Ctx))
 	if _, ok := i.DisplayGeneratorRecords["qrcode"]; !ok {
 		i.addFooterHTML(`<script>` + displayFnGens["qrcode"].JS() + `</script>`)
 		i.DisplayGeneratorRecords["qrcode"] = struct{}{}
@@ -1276,6 +1278,7 @@ type FilterType struct {
 	NoIcon      bool
 }
 
+// FieldFilterable set a field filterable which will display in the filter box.
 func (i *InfoPanel) FieldFilterable(filterType ...FilterType) *InfoPanel {
 	i.FieldList[i.curFieldListIndex].Filterable = true
 
@@ -1317,12 +1320,24 @@ func (i *InfoPanel) FieldFilterable(filterType ...FilterType) *InfoPanel {
 	return i
 }
 
+// FieldFilterOptions set options for a filterable field to select. It will work when you set the
+// FormType of the field to SelectSingle/Select/SelectBox.
 func (i *InfoPanel) FieldFilterOptions(options FieldOptions) *InfoPanel {
 	i.FieldList[i.curFieldListIndex].FilterFormFields[0].Options = options
 	i.FieldList[i.curFieldListIndex].FilterFormFields[0].OptionExt = `{"allowClear": "true"}`
 	return i
 }
 
+// FieldFilterOptionsFromTable set options for a filterable field to select. The options is from other table.
+// For example,
+//
+//	`FieldFilterOptionsFromTable("roles", "name", "id")`
+//
+// will generate the sql like:
+//
+//	`select id, name from roles`.
+//
+// And the `id` will be the value of options, `name` is the text to be shown.
 func (i *InfoPanel) FieldFilterOptionsFromTable(table, textFieldName, valueFieldName string, process ...OptionTableQueryProcessFn) *InfoPanel {
 	var fn OptionTableQueryProcessFn
 	if len(process) > 0 {
@@ -1337,17 +1352,38 @@ func (i *InfoPanel) FieldFilterOptionsFromTable(table, textFieldName, valueField
 	return i
 }
 
-func (i *InfoPanel) FieldFilterProcess(process func(string) string) *InfoPanel {
-	i.FieldList[i.curFieldListIndex].FilterFormFields[0].ProcessFn = process
-	return i
-}
-
+// FieldFilterOptionExt set the option extension js of the field.
 func (i *InfoPanel) FieldFilterOptionExt(m map[string]interface{}) *InfoPanel {
 	s, _ := json.Marshal(m)
 	i.FieldList[i.curFieldListIndex].FilterFormFields[0].OptionExt = template.JS(s)
 	return i
 }
 
+// FieldFilterProcess process the field content.
+// For example:
+//
+//	FieldFilterProcess(func(val string) string {
+//			return val + "ms"
+//	})
+func (i *InfoPanel) FieldFilterProcess(process func(string) string) *InfoPanel {
+	i.FieldList[i.curFieldListIndex].FilterFormFields[0].ProcessFn = process
+	return i
+}
+
+// FieldFilterOnSearch set the url and the corresponding handler which has some backend logic and
+// return the options of the field.
+// For example:
+//
+//	FieldFilterOnSearch("/search/city", func(ctx *context.Context) (success bool, msg string, data interface{}) {
+//		return true, "ok", selection.Data{
+//			Results: selection.Options{
+//				{Text: "GuangZhou", ID: "1"},
+//				{Text: "ShenZhen", ID: "2"},
+//				{Text: "BeiJing", ID: "3"},
+//				{Text: "ShangHai", ID: "4"},
+//			}
+//		}
+//	}, 1000)
 func (i *InfoPanel) FieldFilterOnSearch(url string, handler Handler, delay ...int) *InfoPanel {
 	ext, callback := searchJS(i.FieldList[i.curFieldListIndex].FilterFormFields[0].OptionExt, url, handler, delay...)
 	i.FieldList[i.curFieldListIndex].FilterFormFields[0].OptionExt = ext
@@ -1355,25 +1391,56 @@ func (i *InfoPanel) FieldFilterOnSearch(url string, handler Handler, delay ...in
 	return i
 }
 
+// FieldFilterOnChooseCustom set the js that will be called when filter option be selected.
 func (i *InfoPanel) FieldFilterOnChooseCustom(js template.HTML) *InfoPanel {
 	i.FooterHtml += chooseCustomJS(i.FieldList[i.curFieldListIndex].Field, js)
 	return i
 }
 
+// FieldFilterOnChooseMap set the actions that will be taken when filter option be selected.
+// For example:
+//
+//	map[string]types.LinkField{
+//	     "men": {Field: "ip", Value:"127.0.0.1"},
+//	     "women": {Field: "ip", Hide: true},
+//	     "other": {Field: "ip", Disable: true}
+//	}
+//
+// mean when choose men, the value of field ip will be set to 127.0.0.1,
+// when choose women, field ip will be hidden, and when choose other, field ip will be disabled.
 func (i *InfoPanel) FieldFilterOnChooseMap(m map[string]LinkField) *InfoPanel {
 	i.FooterHtml += chooseMapJS(i.FieldList[i.curFieldListIndex].Field, m)
 	return i
 }
 
+// FieldFilterOnChoose set the given value of the given field when choose the value of val.
 func (i *InfoPanel) FieldFilterOnChoose(val, field string, value template.HTML) *InfoPanel {
 	i.FooterHtml += chooseJS(i.FieldList[i.curFieldListIndex].Field, field, val, value)
 	return i
 }
 
+// OperationURL get the operation api url.
 func (i *InfoPanel) OperationURL(id string) string {
 	return config.Url("/operation/" + utils.WrapURL(id))
 }
 
+// FieldFilterOnChooseAjax set the url and handler that will be called when field be choosed.
+// The handler will return the option of the field. It will help to link two or more form items.
+// For example:
+//
+//	FieldFilterOnChooseAjax("city", "/search/city", func(ctx *context.Context) (success bool, msg string, data interface{}) {
+//		return true, "ok", selection.Data{
+//			Results: selection.Options{
+//				{Text: "GuangZhou", ID: "1"},
+//				{Text: "ShenZhen", ID: "2"},
+//				{Text: "BeiJing", ID: "3"},
+//				{Text: "ShangHai", ID: "4"},
+//			}
+//		}
+//	})
+//
+// When you choose the country, it trigger the action of ajax which be sent to the given handler,
+// and return the city options to the field city.
 func (i *InfoPanel) FieldFilterOnChooseAjax(field, url string, handler Handler) *InfoPanel {
 	js, callback := chooseAjax(i.FieldList[i.curFieldListIndex].Field, field, i.OperationURL(url), handler)
 	i.FooterHtml += js
@@ -1381,66 +1448,90 @@ func (i *InfoPanel) FieldFilterOnChooseAjax(field, url string, handler Handler) 
 	return i
 }
 
+// FieldFilterOnChooseHide hide the fields when value to be chosen.
 func (i *InfoPanel) FieldFilterOnChooseHide(value string, field ...string) *InfoPanel {
 	i.FooterHtml += chooseHideJS(i.FieldList[i.curFieldListIndex].Field, []string{value}, field...)
 	return i
 }
 
+// FieldFilterOnChooseShow display the fields when value to be chosen.
 func (i *InfoPanel) FieldFilterOnChooseShow(value string, field ...string) *InfoPanel {
 	i.FooterHtml += chooseShowJS(i.FieldList[i.curFieldListIndex].Field, []string{value}, field...)
 	return i
 }
 
+// FieldFilterOnChooseDisable disable the fields when value to be chosen.
 func (i *InfoPanel) FieldFilterOnChooseDisable(value string, field ...string) *InfoPanel {
 	i.FooterHtml += chooseDisableJS(i.FieldList[i.curFieldListIndex].Field, []string{value}, field...)
 	return i
 }
 
+// FieldHide hide field. Include the filter area.
 func (i *InfoPanel) FieldHide() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].Hide = true
 	return i
 }
 
+// FieldHide hide field for only the table.
 func (i *InfoPanel) FieldHideForList() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].HideForList = true
 	return i
 }
 
+// FieldJoin gets the field of the concatenated table.
+//
+//	Join {
+//	    BaseTable:   "users",
+//	    Field:       "role_id",
+//	    Table:       "roles",
+//	    JoinField:   "id",
+//	}
+//
+// It will generate the join table sql like:
+//
+// select ... from users left join roles on roles.id = users.role_id
 func (i *InfoPanel) FieldJoin(join Join) *InfoPanel {
 	i.FieldList[i.curFieldListIndex].Joins = append(i.FieldList[i.curFieldListIndex].Joins, join)
 	return i
 }
 
+// FieldLimit limit the field length.
 func (i *InfoPanel) FieldLimit(limit int) *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].AddLimit(limit)
 	return i
 }
 
+// FieldTrimSpace trim space of the field.
 func (i *InfoPanel) FieldTrimSpace() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].AddTrimSpace()
 	return i
 }
 
+// FieldSubstr intercept string of the field.
 func (i *InfoPanel) FieldSubstr(start int, end int) *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].AddSubstr(start, end)
 	return i
 }
 
+// FieldToTitle update the field to a string that begin words mapped to their Unicode title case.
 func (i *InfoPanel) FieldToTitle() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].AddToTitle()
 	return i
 }
 
+// FieldToUpper update the field to a string with all Unicode letters mapped to their upper case.
 func (i *InfoPanel) FieldToUpper() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].AddToUpper()
 	return i
 }
 
+// FieldToLower update the field to a string with all Unicode letters mapped to their lower case.
 func (i *InfoPanel) FieldToLower() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].AddToLower()
 	return i
 }
 
+// FieldXssFilter escape field with html.Escape.
 func (i *InfoPanel) FieldXssFilter() *InfoPanel {
 	i.FieldList[i.curFieldListIndex].DisplayProcessChains = i.FieldList[i.curFieldListIndex].DisplayProcessChains.
 		Add(func(value FieldModel) interface{} {

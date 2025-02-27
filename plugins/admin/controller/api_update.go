@@ -32,7 +32,7 @@ func (h *Handler) ApiUpdate(ctx *context.Context) {
 		}
 	}
 
-	err := param.Panel.UpdateData(param.Value())
+	err := param.Panel.UpdateData(ctx, param.Value())
 	if err != nil {
 		response.Error(ctx, err.Error())
 		return
@@ -81,7 +81,7 @@ func (h *Handler) ApiUpdateForm(ctx *context.Context) {
 		"footer": f.FooterHtml,
 		"prefix": h.config.PrefixFixSlash(),
 		"token":  h.authSrv().AddToken(),
-		"operation_footer": formFooter(footerKind, f.IsHideContinueEditCheckBox, f.IsHideContinueNewCheckBox,
+		"operation_footer": formFooter(ctx, footerKind, f.IsHideContinueEditCheckBox, f.IsHideContinueNewCheckBox,
 			f.IsHideResetButton, f.FormEditBtnWord),
 	})
 }

@@ -7,15 +7,16 @@ package language
 import "strings"
 
 var cn = LangSet{
-	"managers":  "管理员管理",
-	"name":      "用户名",
-	"nickname":  "昵称",
-	"role":      "角色",
-	"createdat": "创建时间",
-	"updatedat": "更新时间",
-	"path":      "路径",
-	"submit":    "提交",
-	"filter":    "筛选",
+	"managers":        "管理员",
+	"managers manage": "管理员管理",
+	"name":            "用户名",
+	"nickname":        "昵称",
+	"role":            "角色",
+	"createdat":       "创建时间",
+	"updatedat":       "更新时间",
+	"path":            "路径",
+	"submit":          "提交",
+	"filter":          "筛选",
 
 	"new":             "新建",
 	"export":          "导出",
@@ -39,6 +40,7 @@ var cn = LangSet{
 	"remove":          "移除",
 
 	"permission manage": "权限管理",
+	"menus":             "菜单",
 	"menus manage":      "菜单管理",
 	"roles manage":      "角色管理",
 	"operation log":     "操作日志",
@@ -75,7 +77,8 @@ var cn = LangSet{
 	"confirm password":       "确认密码",
 	"all method if empty":    "为空默认为所有方法",
 
-	"detail": "详情",
+	"detail":     "详情",
+	"query time": "查询时间",
 
 	"avatar":     "头像",
 	"password":   "密码",
@@ -140,6 +143,9 @@ var cn = LangSet{
 	"uninstalled":      "未安装",
 	"plugin setting":   "插件设置",
 
+	"view": "查看",
+	"del":  "删除",
+
 	"showing <b>%s</b> to <b>%s</b> of <b>%s</b> entries": "显示第 <b>%s</b> 到第 <b>%s</b> 条记录，总共 <b>%s</b> 条记录",
 
 	"second":  "秒",
@@ -157,6 +163,8 @@ var cn = LangSet{
 	"year":    "年",
 	"years":   "年",
 
+	"site setting":           "网站设置",
+	"config.site setting":    "网站设置",
 	"config.domain":          "网站域名",
 	"config.language":        "网站语言",
 	"config.url prefix":      "URL前缀",
@@ -174,7 +182,6 @@ var cn = LangSet{
 	"config.databases":       "数据库设置",
 	"config.general":         "通用",
 	"config.log":             "日志",
-	"config.site setting":    "网站设置",
 	"config.custom":          "定制",
 	"config.debug":           "Debug模式",
 	"config.site off":        "关闭网站",
@@ -260,12 +267,14 @@ var cn = LangSet{
 	"config.language." + JP:                  "日文",
 	"config.language." + strings.ToLower(TC): "繁体中文",
 	"config.language." + PTBR:                "Brazilian Portuguese",
+	"config.language." + RU:                  "Русский",
 
 	"config.modify site config":         "修改网站配置",
 	"config.modify site config success": "修改网站配置成功",
 	"config.modify site config fail":    "修改网站配置失败",
 
-	"system.system info":     "应用系统信息",
+	"site info":              "运行信息",
+	"system.site info":       "运行信息",
 	"system.application":     "应用信息",
 	"system.application run": "应用运行信息",
 	"system.system":          "系统信息",
@@ -319,7 +328,8 @@ var cn = LangSet{
 	"system.theme_name":       "主题",
 	"system.theme_version":    "主题版本",
 
-	"tool.tool":                 "工具",
+	"code generate tool":        "代码生成器",
+	"tool.code generate tool":   "代码生成器",
 	"tool.table":                "表格",
 	"tool.connection":           "连接",
 	"tool.output path is empty": "输出路径为空",
